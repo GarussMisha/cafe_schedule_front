@@ -1,16 +1,19 @@
 <template>
   <main>
+    <button @click="goSchedule">Таблица расписания</button>
     <h1>HomePage</h1>
-    <button type="button" @click="logout">Выход</button>
   </main>
 </template>
 
 <script setup>
-import { useUserStore } from '@/stores/user'
+import { useRouter } from 'vue-router';
 
-const userStore = useUserStore()
+const router = useRouter()
 
-function logout() {
-  userStore.logout()
+
+function goSchedule(){
+  router.push('/schedule')
 }
+
+
 </script>

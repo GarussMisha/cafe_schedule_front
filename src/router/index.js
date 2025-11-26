@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import LoginView from '../views/LoginView.vue'
+import ApminPanel from '../views/AdminPanel.vue'
+import ScheduleView from '../views/ScheduleView.vue'
 import { isAuthenticated } from '@/api/auth.js'
 
 const router = createRouter({
@@ -9,12 +12,27 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: { showHeadbar: true },
     },
     {
       path: '/login',
       name: 'login',
-      component: () => import('../views/LoginView.vue'),
+      component: LoginView,
+      meta: { showHeadbar: false },
     },
+    {
+      path: '/admin',
+      name: 'adminPanel',
+      component: ApminPanel,
+      meta: { showHeadbar: true },
+    },
+    {
+      path: '/schedule',
+      name: 'ScheduleView',
+      component: ScheduleView,
+      meta: { showHeadbar: true },
+    },
+
   ],
 })
 
