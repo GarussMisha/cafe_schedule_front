@@ -1,43 +1,57 @@
-# .
+# Приложение расписания кафе
 
-This template should help get you started developing with Vue 3 in Vite.
+Этот проект помогает начать разработку с Vue 3 и Vite.
 
-## Recommended IDE Setup
+## Требования
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+Перед запуском проекта убедитесь, что у вас установлены:
+- **Node.js** (версия 14 и выше) - [скачать](https://nodejs.org/)
+- **npm** (идёт в комплекте с Node.js)
 
-## Recommended Browser Setup
+Проверить версии:
+```sh
+node --version
+npm --version
+```
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
+## Рекомендации по IDE
+
+- IDE: [VS Code](https://code.visualstudio.com/)
+- Расширение: [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
+
+## Рекомендуемая настройка браузера
+
+- Браузеры на базе Chromium (Chrome, Edge, Brave и т.д.):
   - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+  - [Включить пользовательский форматер объектов в Chrome DevTools](http://bit.ly/object-formatters)
 
-## Customize configuration
+## Настройка конфигурации
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+Смотрите [Vite Configuration Reference](https://vite.dev/config/).
 
-## Project Setup
+## Запуск проекта
+
+### 1. Установка зависимостей
 
 ```sh
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+### 2. Запуск в режиме разработки с горячей перезагрузкой
 
 ```sh
 npm run dev
 ```
 
-### Compile and Minify for Production
+Приложение будет доступно по адресу `http://localhost:5173`
+
+### 3. Сборка для продакшена
 
 ```sh
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+### 4. Проверка кода с помощью [ESLint](https://eslint.org/)
 
 ```sh
 npm run lint

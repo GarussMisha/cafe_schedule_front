@@ -1,11 +1,13 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { authAPI } from '@/api/auth'
+import { getAllUsers, createUser, deleteUser, updateUser} from '@/api/user'
 import router from '@/router'
 
 export const useUserStore = defineStore('user', () => {
   const currentUser = ref(null)
   const isLoading = ref(false)
+  const allUsers = ref([])
 
   // Getters
   const isAuthenticated = computed(() => !!currentUser.value)
@@ -27,7 +29,7 @@ export const useUserStore = defineStore('user', () => {
       currentUser.value = userData
       return userData
     } catch (error) {
-      console.error('Ошибка загрузки профиля:', error)
+      console.error('E -> stores/user.js -> Ошибка загрузки профиля:', error)
       throw error
     } finally {
       isLoading.value = false
@@ -45,7 +47,7 @@ export const useUserStore = defineStore('user', () => {
       currentUser.value = userData
       return userData
     } catch (error) {
-      console.error('Ошибка логина:', error)
+      console.error('E -> stores/user.js -> Ошибка логина:', error)
       throw error
     } finally {
       isLoading.value = false
@@ -60,6 +62,56 @@ export const useUserStore = defineStore('user', () => {
     router.push('/login')
   }
 
+  /**
+   * Загрузка всех пользователей
+   */
+  async function fetchAllUsers() {
+    try {
+      const users = await getAllUsers()
+      allUsers.value = users
+      console.log('Пользователи загружены успешно:', users)
+      return allUsers.value
+    } catch (error) {
+      console.error('E -> stores/user.js -> Ошибка загрузки пользователей:', error)
+      throw error
+    }
+  }
+
+  async function createUser_store(userData) {
+    try {
+      const newUser = await createUser(userData)
+      console.log('Пользователь создан успешно:', newUser)
+      return newUser
+    } catch (error) {
+      console.error('E -> stores/user.js -> Ошибка создания пользователя:', error)
+      throw error
+    }
+  }
+
+  async function updatedUser_store(userId, userData) {
+    try {
+      const updatedUser = await updateUser(userId, userData)
+      console.log('Пользователь обновлен успешно:', updatedUser)
+      return updatedUser
+    } catch (error) {
+      console.error('E -> stores/user.js -> Ошибка обновления пользователя:', error)
+      throw error     
+    }
+  }
+
+
+  async function deleteUser_store(userId) {
+    try {
+      const result = await deleteUser(userId)
+      console.log('Пользователь удален успешно:', result)
+      return result
+    } catch (error) {
+      console.error('E -> stores/user.js -> Ошибка удаления пользователя:', error)
+      throw error
+    }
+  }
+
+
   return {
     currentUser,
     isLoading,
@@ -70,6 +122,10 @@ export const useUserStore = defineStore('user', () => {
     isEmployee,
     init,
     login,
-    logout
+    logout,
+    fetchAllUsers,
+    createUser_store,
+    deleteUser_store,
+    updatedUser_store
   }
 })

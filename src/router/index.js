@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import ApminPanel from '../views/AdminPanel.vue'
 import ScheduleView from '../views/ScheduleView.vue'
+import ProfileView from '../views/ProfileView.vue'
 import { isAuthenticated } from '@/api/auth.js'
 
 const router = createRouter({
@@ -30,6 +31,12 @@ const router = createRouter({
       path: '/schedule',
       name: 'ScheduleView',
       component: ScheduleView,
+      meta: { showHeadbar: true },
+    },
+    {
+      path: '/profile',
+      name: 'ProfileView',
+      component: ProfileView,
       meta: { showHeadbar: true },
     },
 
