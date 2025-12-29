@@ -4,30 +4,33 @@
       <h1>Профиль пользователя</h1>
       
       <!-- Информация о пользователе -->
-      <details class="user-info" v-if="userStore.currentUser">
-        <summary>Информация о пользователе</summary>
+      <!--Новая-->
+      <div class="user-info" v-if="userStore.currentUser">
         <div class="user-info-content">
-
-            <div class="info-item">
-              <strong>Имя:</strong> {{ userStore.currentUser.firstName || 'Не указано' }}
-            </div>
-            <div class="info-item">
-              <strong>Фамилия:</strong> {{ userStore.currentUser.lastName || 'Не указано' }}
-            </div>
-            <div class="info-item">
-              <strong>Логин:</strong> {{ userStore.currentUser.username }}
-            </div>
-            <div class="info-item">
-              <strong>Email:</strong> {{ userStore.currentUser.email || 'Не указано' }}
-            </div>
-            <div class="info-item">
-              <strong>Должность:</strong> {{ userStore.currentUser.position || 'Не указано' }}
-            </div>
-            <div class="info-item">
-              <strong>Роли:</strong> {{ userStore.currentUser.roles?.join(', ') || 'Не указано' }}
-            </div>
+          <div class="info-item-name">
+            <p>{{ userStore.currentUser.firstName + " " + userStore.currentUser.lastName || 'Не указано' }}</p>
+          </div>
+          <div class="user-info-content-detail">
+            <details class="user-info-summary">
+              <summary>Больше информации</summary>
+              <div class="user-info-content">
+                  <div class="info-item">
+                    <strong>Логин:</strong> {{ userStore.currentUser.username }}
+                  </div>
+                  <div class="info-item">
+                    <strong>Email:</strong> {{ userStore.currentUser.email || 'Не указано' }}
+                  </div>
+                  <div class="info-item">
+                    <strong>Должность:</strong> {{ userStore.currentUser.position || 'Не указано' }}
+                  </div>
+                  <div class="info-item">
+                    <strong>Роли:</strong> {{ userStore.currentUser.roles?.join(', ') || 'Не указано' }}
+                  </div>
+              </div>
+            </details>
+          </div>
         </div>
-      </details>
+      </div>
 
       <!-- Управление месяцем -->
       <div class="month-controls-compact">
@@ -36,7 +39,32 @@
         <button @click="nextMonth" class="month-btn">›</button>
       </div>
 
+      <div class="approve-section">
+        <p>Статус вашего расписания: <strong>{{ scheduleStore.mySchedule?.approved ? 'Закрыто' : 'Открыто' }}</strong></p>
+        
+        <!-- Кнопка редактирования (видна только если не утверждено) -->
+        <div class="action-buttons" v-if="!scheduleStore.mySchedule?.approved || userStore.isManager">
+          <template v-if="!isEditingSchedule">
+            <button @click="startEditing" class="edit-btn">
+              ✏️ Редактировать расписание
+            </button>
+          </template>
+          <template v-else>
+            <button @click="saveSchedule" class="save-btn">
+              ✓ Сохранить
+            </button>
+            <button @click="cancelEditing" class="cancel-btn">
+              ✕ Отменить
+            </button>
+          </template>
+        </div>
+      </div>
+
       <!-- Таблица расписания на весь экран -->
+      <div class="schedule-title">
+        <strong>Расписание на {{ formatMonth(currentMonth) }}</strong>
+      </div>
+
       <div class="fullscreen-schedule" v-if="scheduleStore.mySchedule?.userSchedules?.[0]?.days">
         <table class="compact-table">
           <!-- Заголовки дат -->
@@ -65,12 +93,29 @@
                   :class="{
                     'weekend': isWeekend(day.date),
                     'today': isToday(day.date),
-                    'compact': true
-                  }">
-               <!-- Прямой доступ к данным -->
-               <div class="compact-status"
-                    :style="{ backgroundColor: getStatusColor(day.status) }">
-                 {{ getStatusShortName(day.status) }}
+                    'compact': true,
+                    'editing': isEditingSchedule,
+                    'edited': isEditingSchedule && isDateEdited(day.date)
+                  }"
+                  @click="isEditingSchedule && openStatusDropdown(day.date)">
+               <div class="compact-status-wrapper">
+                 <div class="compact-status"
+                      :style="{ backgroundColor: getStatusColor(getEditedDayStatus(day.date)) }">
+                   {{ getStatusShortName(getEditedDayStatus(day.date)) }}
+                 </div>
+                 <!-- Звездочка для отредактированных дней -->
+                 <span v-if="isEditingSchedule && isDateEdited(day.date)" class="edited-marker">*</span>
+               </div>
+
+               <!-- Dropdown с выбором статуса (показывается по клику) -->
+               <div v-if="isEditingSchedule && selectedDate === day.date" class="status-dropdown">
+                 <div v-for="status in scheduleStatusesFromStore"
+                      :key="status.id"
+                      class="dropdown-item"
+                      @click.stop="selectStatus(day.date, status.id)">
+                   <span class="status-color" :style="{ backgroundColor: status.color }"></span>
+                   {{ status.short_name }} - {{ status.name_rus }}
+                 </div>
                </div>
              </td>
             </tr>
@@ -99,6 +144,9 @@ const userStore = useUserStore()
 const scheduleStore = useScheduleStore()
 
 const currentMonth = ref(scheduleStore.currentMonth)
+const isEditingSchedule = ref(false)
+const selectedDate = ref(null)
+const editedDays = ref({})
 
 // 1. Получение статусов из store
 const scheduleStatusesFromStore = computed(() => {
@@ -135,6 +183,82 @@ async function nextMonth() {
   scheduleStore.currentMonth = currentMonth.value
   await loadSchedule()
 }
+
+// Функции редактирования расписания
+function startEditing() {
+  isEditingSchedule.value = true
+  editedDays.value = {}
+}
+
+function cancelEditing() {
+  isEditingSchedule.value = false
+  selectedDate.value = null
+  editedDays.value = {}
+}
+
+function openStatusDropdown(date) {
+  selectedDate.value = selectedDate.value === date ? null : date
+}
+
+function selectStatus(date, statusId) {
+  editedDays.value[date] = statusId
+  selectedDate.value = null
+}
+
+function isDateEdited(date) {
+  return editedDays.value.hasOwnProperty(date)
+}
+
+function getEditedDayStatus(date) {
+  if (editedDays.value.hasOwnProperty(date)) {
+    return editedDays.value[date]
+  }
+  const originalDay = scheduleStore.mySchedule.userSchedules[0].days.find(d => d.date === date)
+  return originalDay?.status
+}
+
+// Изменение статуса утверждения расписания
+async function toggleApproveStatus() {
+  const newStatus = !scheduleStore.mySchedule.approved
+  try {
+    await scheduleStore.changeApproveStatus(currentMonth.value, newStatus)
+  } catch (error) {
+    console.error('Ошибка при изменении статуса:', error)
+  }
+}
+
+async function saveSchedule() {
+  const turnSchedule = ref(false)
+  try {
+    if (userStore.isManager && scheduleStore.isStatusMySchedule) {
+      await toggleApproveStatus()
+      turnSchedule.value = true
+    }
+    const originalDays = scheduleStore.mySchedule.userSchedules[0].days
+    const daysToSend = originalDays.map(day => ({
+      date: day.date,
+      status: getEditedDayStatus(day.date)
+    }))
+
+    await scheduleStore.updateMySchedule(currentMonth.value, daysToSend)
+    
+    isEditingSchedule.value = false
+    selectedDate.value = null
+    editedDays.value = {}
+
+    if (userStore.isManager && turnSchedule) {
+      await toggleApproveStatus()
+      turnSchedule.value = false
+    }
+    
+    await loadSchedule()
+  } catch (error) {
+    console.error('Ошибка при сохранении расписания:', error)
+  }
+}
+
+
+
 
 // Загрузка данных при монтировании
 onMounted(async () => {
@@ -235,7 +359,7 @@ body {
 /* Полноэкранная таблица */
 .fullscreen-schedule {
   width: 100%;
-  overflow: hidden;
+  overflow: visible;
   background: white;
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -245,6 +369,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  position: relative;
 }
 
 /* Динамический расчет ширины колонок */
@@ -349,6 +474,131 @@ h1 {
   color: #333;
 }
 
+/* Блок управления расписанием */
+.approve-section {
+  background: white;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.approve-section p {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.edit-btn, .save-btn, .cancel-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.edit-btn {
+  background: #007bff;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #0056b3;
+}
+
+.save-btn {
+  background: #28a745;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #218838;
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #c82333;
+}
+
+/* Стиль для редактирования */
+.compact-table td.editing {
+  cursor: pointer;
+  position: relative;
+}
+
+.compact-table td.edited {
+  border: 2px dashed #ff9800 !important;
+}
+
+.compact-status-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edited-marker {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #ff9800;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* Dropdown меню выбора статуса */
+.status-dropdown {
+  position: fixed;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  z-index: 10000;
+  max-width: 200px;
+  min-width: 150px;
+}
+
+.dropdown-item {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  border-bottom: 1px solid #eee;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f0f0f0;
+}
+
+.status-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1px solid rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+
 /* Адаптивность */
 @media (min-width: 1600px) {
   .compact-table th,
@@ -400,3 +650,4 @@ h1 {
   }
 }
 </style>
+

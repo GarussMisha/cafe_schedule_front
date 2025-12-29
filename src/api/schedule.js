@@ -38,9 +38,11 @@ export async function createMySchedule(scheduleData) {
 }
 
 // 4. Внесение изменений в расписание по текущему пользователю
-export async function updateMySchedule(scheduleData) {
+export async function updateMySchedule(month, scheduleData) {
     try {
-        const response = await apiClient.post('/schedule/my', scheduleData);
+        const response = await apiClient.post('/schedule/my', scheduleData, {
+            params: { month }
+        });
         return response.data;
     } catch (error) {
         console.error('Error updating MY schedule:', error);
@@ -64,5 +66,45 @@ export async function getStatusesSchedule() {
             { id: 'SICK_LEAVE', color: '#d5e400ff', name_rus: 'Больничный', short_name: 'Б' },
         ]
         return defaultStatusesSchedule;
+    }
+}
+
+// Получение статуса расписания all
+export async function getScheduleStatus(month) {
+    try {
+        const response = await apiClient.get('/schedule/status', { params: {month}});
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching schedule status:', error);
+        throw error;
+    }
+}
+
+// Изменение статуса расписания (утверждение/отмена утверждения)
+export async function changeScheduleStatus(scheduleData, approve) {
+    try { 
+        const response = await apiClient.post('/schedule/approve', null, {
+            params: { 
+                month: scheduleData.month,
+                approved: scheduleData.approve
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error changing schedule status:', error);
+        throw error;
+    }
+}
+
+// Обновление расписания для всех сотрудников
+export async function updateAllSchedule(month, scheduleData) {
+    try { 
+        const response = await apiClient.post('/schedule/all', scheduleData, {
+            params: { month }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error updating ALL schedules:', error);
+        throw error;
     }
 }
