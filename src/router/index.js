@@ -4,7 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import ApminPanel from '../views/AdminPanel.vue'
 import ScheduleView from '../views/ScheduleView.vue'
 import ProfileView from '../views/ProfileView.vue'
-import { isAuthenticated } from '@/api/auth.js'
+import { isAuthenticated, getRole } from '@/api/auth.js'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -47,6 +47,9 @@ router.beforeEach((to, from, next) => {
   // Защищаем все роуты кроме /login
   if (to.path !== '/login' && !isAuthenticated()) {
     next('/login')
+  } else if ((to.path == '/schedule' || to.path == '/profile') && getRole() == "USER_ADMIN") { 
+      next('/')
+      console.warn('Доступ запрещен: Ваша роль == USER_ADMIN. Для неё доспуп к расписанию закрыт.') 
   } else {
     next()
   }

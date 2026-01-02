@@ -37,7 +37,7 @@ apiClient.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('API request ERROR:', error.message);
+        console.error('E:API:AUTH: API request ERROR:', error.message);
         return Promise.reject(error);
     }
 );

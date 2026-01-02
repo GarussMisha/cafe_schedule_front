@@ -7,7 +7,7 @@
 import { computed, onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import Headbar from '@/components/icons/Headbar.vue'
+import Headbar from '@/components/Headbar.vue'
 
 const userStore = useUserStore()
 const route = useRoute()
@@ -22,6 +22,11 @@ const showHeadbar = computed(() => {
 })
 </script>
 
-<style scoped>
+<style>
+  
+body {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400; 
+}
 
 </style>

@@ -1,6 +1,6 @@
 import apiClient from './index.js'
 
-// 1. Получение всего расписания
+// 1. Получение всего расписания по всем пользователям
 export async function getAllSchedule(month) {
     try {
         const response = await apiClient.get('/schedule/all', {
@@ -8,7 +8,7 @@ export async function getAllSchedule(month) {
         });
         return response.data;
     } catch (error) {
-        console.error('Error fetching ALL schedules:', error);
+        console.error('E:API:SCHEDULE: fetching ALL schedules:', error);
         throw error;
     }
 }
@@ -21,7 +21,7 @@ export async function getMySchedule(month) {
         });
         return response.data;
     } catch (error) {
-        console.error('Error fetching MY schedules:', error);
+        console.error('E:API:SCHEDULE: fetching MY schedules:', error);
         throw error;
     }
 }
@@ -32,7 +32,7 @@ export async function createMySchedule(scheduleData) {
         const response = await apiClient.post('/schedule/my', scheduleData);
         return response.data;
     } catch (error) {
-        console.error('Error creating MY schedule:', error);
+        console.error('E:API:SCHEDULE: creating MY schedule:', error);
         throw error;
     }
 }
@@ -45,20 +45,20 @@ export async function updateMySchedule(month, scheduleData) {
         });
         return response.data;
     } catch (error) {
-        console.error('Error updating MY schedule:', error);
+        console.error('E:API:SCHEDULE: updating MY schedule:', error);
         throw error;
     }
 }
     
-//Получение статусов смен
+// 5. Получение статусов смен
 export async function getStatusesSchedule() {
     try {
         const response = await apiClient.get('/schedule/statuses');
         return response.data;
     } catch (error) {
-        console.warn('Error fetching statuses schedules. Return default statuses:', error);
+        console.warn('E:API:SCHEDULE: fetching statuses schedules. Return default statuses:', error);
         
-        // Дефолтные статусы
+        // Дефолтные статусы (TODO: пока не реализуем endpoint)
         const defaultStatusesSchedule = [
             { id: 'WORKING',    color: '#00b10fff', name_rus: 'Рабочая',    short_name: 'Р' },
             { id: 'OFF',        color: '#ccccccff', name_rus: 'Выходной',   short_name: 'В' },
@@ -69,34 +69,35 @@ export async function getStatusesSchedule() {
     }
 }
 
-// Получение статуса расписания all
+// 6. Получение статуса расписания all
 export async function getScheduleStatus(month) {
     try {
         const response = await apiClient.get('/schedule/status', { params: {month}});
         return response.data;
     } catch (error) {
-        console.error('Error fetching schedule status:', error);
+        console.error('E:API:SCHEDULE: fetching schedule status:', error);
         throw error;
     }
 }
 
-// Изменение статуса расписания (утверждение/отмена утверждения)
-export async function changeScheduleStatus(scheduleData, approve) {
+// 7. Изменение статуса расписания (Открыто / закрыто)
+export async function changeScheduleStatus(scheduleData) {
     try { 
+        console.log("changeScheduleStatus")
         const response = await apiClient.post('/schedule/approve', null, {
             params: { 
                 month: scheduleData.month,
-                approved: scheduleData.approve
+                approved: scheduleData.approved
             }
         });
         return response.data;
     } catch (error) {
-        console.error('Error changing schedule status:', error);
+        console.error('E:API:SCHEDULE: changing schedule status:', error);
         throw error;
     }
 }
 
-// Обновление расписания для всех сотрудников
+// 8. Обновление расписания для всех сотрудников
 export async function updateAllSchedule(month, scheduleData) {
     try { 
         const response = await apiClient.post('/schedule/all', scheduleData, {
@@ -104,7 +105,7 @@ export async function updateAllSchedule(month, scheduleData) {
         });
         return response.data;
     } catch (error) {
-        console.error('Error updating ALL schedules:', error);
+        console.error('E:API:SCHEDULE: updating ALL schedules:', error);
         throw error;
     }
 }

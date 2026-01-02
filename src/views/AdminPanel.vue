@@ -33,8 +33,8 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/user';
-import CreateUserModal from '@/components/icons/modal/adminPanel/CreateUserModal.vue';
-import EditUserModal from '@/components/icons/modal/adminPanel/EditUserModal.vue';
+import CreateUserModal from '@/components/modal/adminPanel/CreateUserModal.vue';
+import EditUserModal from '@/components/modal/adminPanel/EditUserModal.vue';
 
 const userStore = useUserStore();
 const allUsers = ref([])

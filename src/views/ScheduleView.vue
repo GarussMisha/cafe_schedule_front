@@ -10,21 +10,6 @@
         <h2 class="month-title">{{ formatMonth(currentMonth) }}</h2>
         <button @click="nextMonth" class="month-btn">›</button>
       </div>
-
-      <!-- Кнопка обновления расписания -->
-      <div style="display:flex; gap:8px; margin:10px 0;">
-        <button @click="refreshSchedule">⟳</button>
-        <select v-model="interval" @change="interval > 0 ? startTimer(interval) : clearInterval(timer)">
-          <option value="0">Без авто</option>
-          <option value="5">5с</option>
-          <option value="30">30с</option>
-        </select>
-      </div>
-      <!-- Отображение статуса -->
-      <div class="refresh-status">
-        {{ scheduleStore.scheduleStatus ? 'Заблокоронно' : 'Не заблокированно' }}
-      </div>
-
       <!-- Кнопка изменения статуса утверждения расписания -->
       <div class="approve-section">
         <p>Статус расписания: <strong>{{ scheduleStore.allSchedule?.approved ? 'Утверждено ✓' : 'Не утверждено' }}</strong></p>
@@ -34,7 +19,7 @@
           <template v-if="!isEditingSchedule">
             <button v-if="!scheduleStore.allSchedule?.approved"
               @click="startEditing(userStore.roles)" class="edit-btn">
-              ✏️ Редактировать расписание
+                {{ scheduleStore.allSchedule?.userSchedules && scheduleStore.allSchedule.userSchedules.length > 0 ? '✏️ Редактировать расписание' : '📝 Создать расписание' }}
             </button>
             <button @click="toggleApproveStatus" v-if="userStore.isManager"
               :class="['approve-btn', scheduleStore.allSchedule?.approved ? 'approved' : 'not-approved']">
@@ -55,80 +40,94 @@
               ✕ Отменить
             </button>
           </template>
+
+          <!-- Легенда статусов из store -->
+          <div class="status-legend" v-if="scheduleStatusesFromStore">
+            <div class="legend-item" v-for="status in scheduleStatusesFromStore" :key="status.id">
+              <span class="legend-color" :style="{ backgroundColor: status.color }"></span>
+              <span class="legend-text">{{ status.short_name }} - {{ status.name_rus }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Таблица расписания всех сотрудников  -->
+      <!-- Расписание всех сотрудников как на ProfileView -->
       <div class="fullscreen-schedule" v-if="scheduleStore.allSchedule?.userSchedules?.[0]?.days">
-        <table class="compact-table">
-          <!-- Заголовки дат -->
-          <thead>
-            <tr>
-              <th class="employee-name-header"></th>
-              <th v-for="day in scheduleStore.allSchedule.userSchedules[0].days" 
-                  :key="day.date"
-                  :class="{
-                    'weekend': isWeekend(day.date), 
-                    'today': isToday(day.date),
-                    'compact': true
-                  }">
-                <div class="compact-date">
-                  <div class="compact-day">{{ getDayOfWeekShort(day.date) }}</div>
-                  <div class="compact-number">{{ new Date(day.date).getDate() }}</div>
-                </div>
-              </th>
-            </tr>
-          </thead>
+        <!-- Расписание для каждого сотрудника -->
+        <div v-for="(userSchedule, userIdx) in scheduleStore.allSchedule.userSchedules" 
+             :key="userSchedule.userId"
+             class="employee-schedule-block">
           
-          <!-- Статусы для каждого сотрудника -->
-          <tbody>
-            <tr v-for="(userSchedule, userIdx) in scheduleStore.allSchedule.userSchedules" :key="userSchedule.userId">
-              <!-- Имя сотрудника -->
-              <td class="employee-name">
-                {{ userSchedule.firstName }} {{ userSchedule.lastName }} {{ userSchedule.id }} {{ userSchedule.role }}
-                <button v-if="isEditingSchedule && (userStore.isManager || userStore.currentUser.id === userSchedule.userId)" @click="removeEmployee(userIdx)" class="remove-employee-btn">✕</button>
-              </td>
-              <!-- Дни для сотрудника -->
-              <td v-for="(day, dayIdx) in userSchedule.days"
-                  :key="day.date"
-                  :class="{
-                    'weekend': isWeekend(day.date),
-                    'today': isToday(day.date),
-                    'compact': true,
-                    'editing': isEditingSchedule,
-                    'edited': isEditingSchedule && isDateEdited(userIdx, day.date)
-                  }"
-                  @click="isEditingSchedule && (userStore.currentUser.id === userSchedule.userId || userStore.isManager) && openStatusDropdown(userIdx, day.date)">
-               <div class="compact-status-wrapper">
-                 <div class="compact-status"
-                      :style="{ backgroundColor: getStatusColor(getEditedDayStatus(userIdx, day.date)) }">
-                   {{ getStatusShortName(getEditedDayStatus(userIdx, day.date)) }}
-                 </div>
-                 <!-- Звездочка для отредактированных дней -->
-                 <span v-if="isEditingSchedule && isDateEdited(userIdx, day.date)" class="edited-marker">*</span>
-               </div>
+          <!-- Информация о сотруднике -->
+          <div class="employee-header">
+            <div class="employee-info">
+              <strong>{{ userSchedule.firstName }} {{ userSchedule.lastName }}</strong>
+              <span class="employee-details">{{ userSchedule.position }} • {{ userSchedule.role }}</span>
+            </div>
+            <button v-if="isEditingSchedule && userStore.isManager" 
+                    @click="removeEmployee(userIdx)" 
+                    class="remove-employee-btn">✕ Удалить</button>
+          </div>
 
-               <!-- Dropdown с выбором статуса -->
-               <div v-if="isEditingSchedule && selectedCell?.userIdx === userIdx && selectedCell?.date === day.date" 
-                    class="status-dropdown">
-                 <div v-for="status in scheduleStatusesFromStore"
-                      :key="status.id"
-                      class="dropdown-item"
-                      @click.stop="selectStatus(userIdx, day.date, status.id)">
-                   <span class="status-color" :style="{ backgroundColor: status.color }"></span>
-                   {{ status.short_name }} - {{ status.name_rus }}
-                 </div>
-               </div>
-             </td>
-            </tr>
-          </tbody>
-        </table>
-        
-        <!-- Легенда статусов из store -->
-        <div class="status-legend" v-if="scheduleStatusesFromStore">
-          <div class="legend-item" v-for="status in scheduleStatusesFromStore" :key="status.id">
-            <span class="legend-color" :style="{ backgroundColor: status.color }"></span>
-            <span class="legend-text">{{ status.short_name }} - {{ status.name_rus }}</span>
+          <!-- Сетка дней -->
+          <div class="schedule-grid">
+            <div v-for="day in userSchedule.days"
+                 :key="day.date"
+                 :class="{
+                   'day-card': true,
+                   'weekend': isWeekend(day.date),
+                   'today': isToday(day.date),
+                   'editing': isEditingSchedule && (userStore.isManager || userStore.currentUser.id === userSchedule.userId)
+                 }"
+                 @click.stop="isEditingSchedule && (userStore.isManager || userStore.currentUser.id === userSchedule.userId) && openStatusDropdown(userIdx, day.date, $event)">
+              
+              <!-- Дата (день недели + число) -->
+              <div class="day-header">
+                <div class="day-name">{{ getDayOfWeekShort(day.date) }}</div>
+                <div class="day-number">{{ new Date(day.date).getDate() }}</div>
+              </div>
+              
+              <!-- Статус -->
+              <div class="day-status" :style="{ backgroundColor: getStatusColor(getEditedDayStatus(userIdx, day.date)) }">
+                <div class="status-text">{{ getStatusShortName(getEditedDayStatus(userIdx, day.date)) }}</div>
+                <span v-if="isEditingSchedule && isDateEdited(userIdx, day.date)" class="edited-marker">*</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dropdown с выбором статуса -->
+          <div v-if="isEditingSchedule && selectedCell?.userIdx === userIdx && selectedCell?.date" 
+               class="status-dropdown-portal"
+               :style="{
+                 top: dropdownPosition.top + 'px',
+                 left: dropdownPosition.left + 'px'
+               }"
+               @click.stop>
+            <div v-for="status in scheduleStatusesFromStore"
+                 :key="status.id"
+                 class="dropdown-item"
+                 @click="selectStatus(userIdx, selectedCell.date, status.id)">
+              <span class="status-color" :style="{ backgroundColor: status.color }"></span>
+              <span class="dropdown-text">{{ status.short_name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Сводка: сколько сотрудников на смене по дням -->
+        <div class="shift-summary">
+          <div class="shift-summary-header">
+            <h3>Сотрудники на смене</h3>
+          </div>
+          <div class="summary-grid">
+            <div v-for="day in scheduleStore.allSchedule.userSchedules[0].days"
+                 :key="day.date"
+                 :class="['summary-card', { 'weekend': isWeekend(day.date), 'today': isToday(day.date) }]">
+              <div class="summary-day">
+                <div class="summary-day-name">{{ getDayOfWeekShort(day.date) }}</div>
+                <div class="summary-day-number">{{ new Date(day.date).getDate() }}</div>
+              </div>
+              <div class="summary-count">{{ getEmployeesOnShift(day.date) }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -158,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted} from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useScheduleStore } from '@/stores/schedule'
 import { useUserStore } from '@/stores/user'
 import { getDayOfWeekShort, isWeekend, isToday, formatMonth, getPreviousMonth, getNextMonth } from '@/utils/schedule'
@@ -170,16 +169,8 @@ const currentMonth = ref(scheduleStore.currentMonth)
 const isEditingSchedule = ref(false)
 const selectedCell = ref(null)
 const editedDays = ref({})
+const dropdownPosition = ref({ top: 0, left: 0 })
 
-// Авто обновление статуса 
-const interval = ref(0)
-let timer = null
-
-// Одна функция для управления автообновлением
-function startTimer(sec) {
-  clearInterval(timer)
-  timer = setInterval(refreshSchedule, sec * 1000)
-}
 
 // 1. Получение статусов из store
 const scheduleStatusesFromStore = computed(() => {
@@ -225,13 +216,22 @@ onMounted(async () => {
   await loadAllSchedules()
   await scheduleStore.fetchStatusesSchedule()
   await scheduleStore.fetchMySchedule()
-  await refreshSchedule()
+  
+  // Добавляем обработчик клика вне dropdown
+  document.addEventListener('click', handleClickOutside)
+})
+
+// Очистка обработчика при размонтировании
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // Изменение статуса утверждения расписания
 async function toggleApproveStatus() {
+  console.log("toggleApproveStatus 1")
   const newStatus = !scheduleStore.allSchedule.approved
   try {
+    console.log("toggleApproveStatus 2")
     await scheduleStore.changeApproveStatus(currentMonth.value, newStatus)
   } catch (error) {
     console.error('Ошибка при изменении статуса:', error)
@@ -260,14 +260,44 @@ function cancelEditing() {
   selectedCell.value = null
   editedDays.value = {}
 }
+
+// Закрытие dropdown при клике вне
+function handleClickOutside(event) {
+  const dropdown = document.querySelector('.status-dropdown-portal')
+  const dayCard = event.target.closest('.day-card')
+  
+  // Если клик на dropdown, ничего не делаем
+  if (dropdown && dropdown.contains(event.target)) return
+  
+  // Если клик на день-карточку, ничего не делаем (обработает openStatusDropdown)
+  if (dayCard) return
+  
+  // Если клик не на dropdown и не на день, закрываем
+  selectedCell.value = null
+}
 //----------------------------------------------//
 
 // Открытие расписания на редактирование (одного дня)
-function openStatusDropdown(userIdx, date) {
+function openStatusDropdown(userIdx, date, event) {
   if (selectedCell.value?.userIdx === userIdx && selectedCell.value?.date === date) {
     selectedCell.value = null
   } else {
     selectedCell.value = { userIdx, date }
+    
+    if (event) {
+      // Вычисляем позицию dropdown относительно кликнутой карточки
+      const card = event.currentTarget
+      const rect = card.getBoundingClientRect()
+      
+      // Найти ближайший parent с position: relative (это .employee-schedule-block)
+      const employeeBlock = card.closest('.employee-schedule-block')
+      const blockRect = employeeBlock.getBoundingClientRect()
+      
+      dropdownPosition.value = {
+        top: rect.bottom - blockRect.top + 8,
+        left: rect.left - blockRect.left + rect.width / 2
+      }
+    }
   }
 }
 
@@ -410,6 +440,34 @@ function removeEmployee(userIdx) {
   }
 }
 
+// Функция подсчета сотрудников на смене в конкретный день
+function getEmployeesOnShift(date) {
+  if (!scheduleStore.allSchedule?.userSchedules) return 0
+  
+  const workingStatusIds = ['WRK', 'SHIFT'] // Статусы "рабочий день"
+  const count = scheduleStore.allSchedule.userSchedules.filter(userSchedule => {
+    const day = userSchedule.days.find(d => d.date === date)
+    if (!day) return false
+    
+    // Проверяем, работает ли сотрудник (не выходной, не больничный, не отпуск)
+    const status = scheduleStatusesFromStore.value?.find(s => s.id === getEditedDayStatus(
+      scheduleStore.allSchedule.userSchedules.indexOf(userSchedule),
+      date
+    ))
+    
+    if (!status) return false
+    const statusName = status.name_rus.toLowerCase()
+    
+    // Считаем только рабочие дни (не выходные, не больничные, не отпуск)
+    return !statusName.includes('выходной') && 
+           !statusName.includes('больниц') && 
+           !statusName.includes('болезн') &&
+           !statusName.includes('отпуск') &&
+           !statusName.includes('отпускной')
+  }).length
+  
+  return count
+}
 
 // Вычисляем доступных сотрудников (которых еще нет в расписании)
 const availableEmployees = computed(() => {
@@ -418,287 +476,460 @@ const availableEmployees = computed(() => {
   const existingUserIds = scheduleStore.allSchedule.userSchedules.map(schedule => schedule.userId)
   return allEmployees.value.filter(employee => !existingUserIds.includes(employee.id))
 })
-
-async function refreshSchedule() {
-  try {
-    await scheduleStore.fetchScheduleStatus(currentMonth.value);
-    console.log('Результат выполнения fetchScheduleStatus:', scheduleStore.scheduleStatus);
-  } catch (error) {
-    console.error('Ошибка при обновлении расписания:', error);
-  }
-}
-
 </script>
 
 
 <style scoped>
-/* Общая страница */
-.refresh-section.compact {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.refresh-btn {
-  padding: 8px 15px;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.interval-select {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.interval-select select {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 13px;
-  min-width: 140px;
-}
-
-.countdown-badge {
-  background: #28a745;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  min-width: 20px;
-  text-align: center;
-}
-
-
 main {
   padding-top: 40px;
   padding-bottom: 40px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  color: #3b2f2f;
+  gap: 25px;
+  color: #2f2f2f;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
-/* Заголовок страницы */
+/* Заголовки */
 h1 {
-  margin: 0 0 10px 0;
   font-size: 26px;
+  margin: 0;
   font-weight: 700;
-  color: #5a3c2f;
 }
 
-/* Панель месяца */
 .month-controls-compact {
-  margin-top: 10px;
-  margin-bottom: 12px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-
-  background: rgba(255, 245, 225, 0.65);
-  backdrop-filter: blur(8px);
-  border-radius: 14px;
-  padding: 10px 14px;
-  border: 1px solid rgba(200, 160, 120, 0.4);
-  width: fit-content;
+  margin: 10px 0 5px 0;
 }
 
 .month-title {
-  margin: 0;
-  font-size: 18px;
-  color: #4b2f1f;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .month-btn {
-  background: rgba(210, 160, 100, 0.2);
-  border: 1px solid rgba(210, 160, 100, 0.5);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 18px;
+  background: #fff;
+  border: 1px solid #ccc;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: 0.2s;
+  font-size: 18px;
 }
 .month-btn:hover {
-  background: rgba(210, 160, 100, 0.35);
+  background: #eee;
 }
 
-/* Статус расписания + кнопки */
+/* Блок статуса расписания */
 .approve-section {
-  margin-top: 10px;
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(255, 250, 235, 0.7);
-  border: 1px solid rgba(210, 180, 130, 0.4);
-  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  padding: 12px 15px;
+  border-radius: 10px;
 }
 
 .action-buttons {
-  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.action-buttons button {
+.edit-btn,
+.add-employee-btn,
+.save-btn,
+.cancel-btn,
+.approve-btn {
+  border: none;
   cursor: pointer;
-  border-radius: 10px;
-  padding: 8px 12px;
-  border: 1px solid rgba(210, 160, 100, 0.5);
-  background: rgba(255, 240, 215, 0.7);
-  transition: 0.2s;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
 }
 
-.action-buttons button:hover {
-  background: rgba(255, 225, 185, 0.9);
+.edit-btn {
+  background: #ffd966;
+}
+.save-btn {
+  background: #4caf50;
+  color: #fff;
+}
+.cancel-btn {
+  background: #f44336;
+  color: #fff;
+}
+.add-employee-btn {
+  background: #5da8ff;
+  color: #fff;
 }
 
-.approve-btn.approved {
-  background: rgba(120, 200, 140, 0.6);
-  border-color: rgba(80, 150, 120, 0.7);
-}
 .approve-btn.not-approved {
-  background: rgba(240, 190, 130, 0.6);
+  background: #4caf50;
+  color: white;
+}
+.approve-btn.approved {
+  background: #e67e22;
+  color: white;
 }
 
-/* Таблица расписания */
+/* Таблица */
 .fullscreen-schedule {
-  margin-top: 15px;
-  overflow-x: auto;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(255, 250, 240, 0.65);
-  border: 1px solid rgba(210, 180, 130, 0.4);
-  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  background: white;
+  padding: 20px;
 }
 
-/* Сетка календаря */
-.compact-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.compact-table thead th {
-  text-align: center;
-  padding: 6px;
-  font-size: 12px;
-  color: #5b4636;
-  min-width: 38px;
-}
-
-.employee-name-header {
-  width: 400px;
-}
-
-tbody td {
-  text-align: center;
-  border: 1px solid rgba(180,140,110,0.2);
-  min-width: 38px;
+/* Блок расписания сотрудника */
+.employee-schedule-block {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
   position: relative;
 }
 
-/* Имя сотрудника */
-.employee-name {
-  text-align: left;
+.employee-schedule-block:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.employee-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.employee-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.employee-info strong {
+  font-size: 13px;
+  color: #2c3e50;
   font-weight: 600;
-  padding: 8px;
-  max-width: 400px;
-  word-break: break-word;
-  white-space: normal;
+  white-space: nowrap;
 }
 
-/* Текущий день + выходные */
-.weekend {
-  background: rgba(255, 225, 205, 0.35);
-}
-.today {
-  outline: 2px solid rgba(240, 170, 60, 0.7);
+.employee-info strong::after {
+  content: ' •';
+  color: #ccc;
+  margin-left: 8px;
 }
 
-/* Внутри даты */
-.compact-date {
+.employee-details {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.remove-employee-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.remove-employee-btn:hover {
+  background: #d32f2f;
+}
+
+/* Сетка дней */
+.schedule-grid {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+.day-card {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 8px 4px;
+  text-align: center;
+  transition: all 0.25s ease;
+  position: relative;
+  cursor: default;
+  flex: 1;
+  min-width: 0;
+}
+
+.day-card.editing {
+  cursor: pointer;
+}
+
+.day-card.editing:hover {
+  border-color: #4c88ff;
+  box-shadow: 0 4px 12px rgba(76, 136, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Выходные */
+.day-card.weekend {
+  background: rgba(255, 107, 107, 0.06);
+  border-color: #ff6b6b;
+}
+
+.day-card.weekend .day-header {
+  color: #ff6b6b;
+}
+
+/* Сегодня */
+.day-card.today {
+  border: 2px solid #4c88ff;
+  background: rgba(76, 136, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(76, 136, 255, 0.1);
+}
+
+.day-card.today .day-header {
+  color: #4c88ff;
+}
+
+/* Заголовок дня (день недели + число) */
+.day-header {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-bottom: 6px;
+  font-weight: 600;
 }
 
-.compact-day {
-  font-size: 11px;
-  opacity: 0.7;
+.day-name {
+  font-size: 9px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0px;
 }
 
-.compact-number {
-  font-size: 14px;
+.day-number {
+  font-size: 12px;
   font-weight: 700;
+  color: #2c3e50;
 }
 
-/* Статусы */
-.compact-status-wrapper {
+/* Статус */
+.day-status {
+  padding: 6px 2px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 1px;
+  min-height: 26px;
 }
 
-.compact-status {
-  padding: 3px 6px;
-  border-radius: 6px;
-  font-size: 11px;
-  color: #2e2e2e;
-  min-width: 24px;
+.status-text {
+  line-height: 1.2;
 }
 
-/* Изменённая ячейка */
 .edited-marker {
-  color: #d46a00;
-  font-size: 14px;
-  font-weight: bold;
+  color: #ffb547;
+  font-size: 16px;
+  font-weight: 900;
+  margin-left: 2px;
 }
 
-/* Dropdown статусов */
-.status-dropdown {
+/* Dropdown выбора статуса */
+.status-dropdown-portal {
   position: absolute;
-  z-index: 5;
-  top: 100%;
-  left: 0;
-  background: rgba(255, 245, 225, 0.95);
-  border-radius: 10px;
-  border: 1px solid rgba(180, 140, 100, 0.5);
-  backdrop-filter: blur(6px);
-  padding: 6px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 8px;
+  z-index: 1000;
+  width: auto;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: dropdownAppear 0.2s ease-out;
+}
+
+@keyframes dropdownAppear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .dropdown-item {
-  padding: 6px;
-  border-radius: 8px;
-  cursor: pointer;
+  padding: 10px 12px;
   display: flex;
-  gap: 6px;
   align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.2s;
 }
 
 .dropdown-item:hover {
-  background: rgba(255, 220, 180, 0.6);
+  background: rgba(76, 136, 255, 0.1);
+  color: #4c88ff;
 }
 
 .status-color {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.dropdown-text {
+  font-weight: 500;
+}
+
+/* Сводка сотрудников на смене */
+.shift-summary {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  position: relative;
+}
+
+.shift-summary:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.shift-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.shift-summary-header h3 {
+  font-size: 13px;
+  color: #2c3e50;
+  font-weight: 600;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.shift-summary-header h3::after {
+  content: ' •';
+  color: #ccc;
+  margin-left: 8px;
+}
+
+.shift-summary-header .summary-stat {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.summary-grid {
+  background-color: #0a3a6b28;
+  border: 1px solid #08000075;
+  display: flex;
+  gap: 4px;
+  padding-bottom: 8px;
+  padding: 8px 4px;
+  border-radius: 10px;
+}
+
+.summary-card {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 8px 4px;
+  text-align: center;
+  transition: all 0.25s ease;
+  position: relative;
+  cursor: default;
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-card:hover {
+  border-color: #4caf50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+  transform: translateY(-2px);
+}
+
+.summary-card.weekend {
+  background: rgba(255, 107, 107, 0.06);
+  border-color: #ff6b6b;
+}
+
+.summary-card.today {
+  border: 2px solid #4caf50;
+  background: rgba(76, 175, 80, 0.12);
+}
+
+.summary-day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 9px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0px;
+}
+
+.summary-day-name {
+  font-size: 9px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0px;
+}
+
+.summary-day-number {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.summary-count {
+  padding: 6px 2px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgb(255, 255, 255);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 26px;
+  background: #94687e;
 }
 
 /* Легенда */
 .status-legend {
-  margin-top: 14px;
   display: flex;
-  gap: 14px;
   flex-wrap: wrap;
+  gap: 8px 15px;
+  margin-top: 15px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  background: #fafafa;
 }
 
 .legend-item {
@@ -708,39 +939,48 @@ tbody td {
 }
 
 .legend-color {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
 }
 
 /* Модалка */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,.45);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  z-index: 20000;
 }
 
 .modal-content {
-  background: rgba(255, 245, 225, 0.95);
+  background: white;
   padding: 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(220, 180, 120, 0.6);
-  width: 420px;
-  max-height: 80vh;
-  overflow: auto;
+  border-radius: 14px;
+  min-width: 360px;
 }
 
 .employee-item {
   padding: 8px;
-  border-radius: 10px;
+  background: #f6f6f6;
+  margin: 4px 0;
+  border-radius: 8px;
   cursor: pointer;
 }
-
 .employee-item:hover {
-  background: rgba(255, 225, 180, 0.7);
+  background: #dfeaff;
 }
 
+.close-modal-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 9px;
+  border-radius: 10px;
+  border: none;
+  background: #444;
+  color: white;
+}
 </style>
+

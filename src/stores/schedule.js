@@ -75,7 +75,9 @@ export const useScheduleStore = defineStore('schedule', () => {
     //6. Изменение статуса расписания (approved/not approved)
     async function changeApproveStatus(month = currentMonth.value, approve) {
         try {
-            const data = await changeScheduleStatus({ month, approve });
+            console.log("changeApproveStatus", month, approve)
+            const data = await changeScheduleStatus({ month, approved: approve });
+            mySchedule.value = data;
             allSchedule.value = data;
         } catch (error) {
             console.error('Error in changeApproveStatus:', error);

@@ -32,6 +32,7 @@
         </div>
       </div>
 
+      
       <!-- Управление месяцем -->
       <div class="month-controls-compact">
         <button @click="previousMonth" class="month-btn">‹</button>
@@ -66,61 +67,48 @@
       </div>
 
       <div class="fullscreen-schedule" v-if="scheduleStore.mySchedule?.userSchedules?.[0]?.days">
-        <table class="compact-table">
-          <!-- Заголовки дат -->
-          <thead>
-            <tr>
-              <th v-for="day in scheduleStore.mySchedule.userSchedules[0].days" 
-                  :key="day.date"
-                  :class="{
-                    'weekend': isWeekend(day.date), 
-                    'today': isToday(day.date),
-                    'compact': true
-                  }">
-                <div class="compact-date">
-                  <div class="compact-day">{{ getDayOfWeekShort(day.date) }}</div>
-                  <div class="compact-number">{{ new Date(day.date).getDate() }}</div>
-                </div>
-              </th>
-            </tr>
-          </thead>
-          
-          <!-- Статусы -->
-          <tbody>
-            <tr>
-              <td v-for="day in scheduleStore.mySchedule.userSchedules[0].days"
-                  :key="day.date"
-                  :class="{
-                    'weekend': isWeekend(day.date),
-                    'today': isToday(day.date),
-                    'compact': true,
-                    'editing': isEditingSchedule,
-                    'edited': isEditingSchedule && isDateEdited(day.date)
-                  }"
-                  @click="isEditingSchedule && openStatusDropdown(day.date)">
-               <div class="compact-status-wrapper">
-                 <div class="compact-status"
-                      :style="{ backgroundColor: getStatusColor(getEditedDayStatus(day.date)) }">
-                   {{ getStatusShortName(getEditedDayStatus(day.date)) }}
-                 </div>
-                 <!-- Звездочка для отредактированных дней -->
-                 <span v-if="isEditingSchedule && isDateEdited(day.date)" class="edited-marker">*</span>
-               </div>
+        <div class="schedule-grid">
+          <!-- Ячейки для каждого дня -->
+          <div v-for="day in scheduleStore.mySchedule.userSchedules[0].days"
+               :key="day.date"
+               :class="{
+                 'day-card': true,
+                 'weekend': isWeekend(day.date),
+                 'today': isToday(day.date),
+                 'editing': isEditingSchedule
+               }"
+               @click.stop="isEditingSchedule && openStatusDropdown(day.date, $event)">
+            
+            <!-- Дата (день недели + число) -->
+            <div class="day-header">
+              <div class="day-name">{{ getDayOfWeekShort(day.date) }}</div>
+              <div class="day-number">{{ new Date(day.date).getDate() }}</div>
+            </div>
+            
+            <!-- Статус -->
+            <div class="day-status" :style="{ backgroundColor: getStatusColor(getEditedDayStatus(day.date)) }">
+              <div class="status-text">{{ getStatusShortName(getEditedDayStatus(day.date)) }}</div>
+              <span v-if="isEditingSchedule && isDateEdited(day.date)" class="edited-marker">*</span>
+            </div>
+          </div>
+        </div>
 
-               <!-- Dropdown с выбором статуса (показывается по клику) -->
-               <div v-if="isEditingSchedule && selectedDate === day.date" class="status-dropdown">
-                 <div v-for="status in scheduleStatusesFromStore"
-                      :key="status.id"
-                      class="dropdown-item"
-                      @click.stop="selectStatus(day.date, status.id)">
-                   <span class="status-color" :style="{ backgroundColor: status.color }"></span>
-                   {{ status.short_name }} - {{ status.name_rus }}
-                 </div>
-               </div>
-             </td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Dropdown с выбором статуса (вне контейнера) -->
+        <div v-if="isEditingSchedule && selectedDate" 
+             class="status-dropdown-portal"
+             :style="{
+               top: dropdownPosition.top + 'px',
+               left: dropdownPosition.left + 'px'
+             }"
+             @click.stop>
+          <div v-for="status in scheduleStatusesFromStore"
+               :key="status.id"
+               class="dropdown-item"
+               @click="selectStatus(selectedDate, status.id)">
+            <span class="status-color" :style="{ backgroundColor: status.color }"></span>
+            <span class="dropdown-text">{{ status.short_name }}</span>
+          </div>
+        </div>
         
         <!-- Легенда статусов из store -->
         <div class="status-legend" v-if="scheduleStatusesFromStore">
@@ -129,13 +117,25 @@
             <span class="legend-text">{{ status.short_name }} - {{ status.name_rus }}</span>
           </div>
         </div>
+
+        <!-- Статистика по расписанию -->
+        <div class="schedule-statistics" v-if="scheduleStatistics">
+          <h3>Статистика за месяц</h3>
+          <div class="statistics-grid">
+            <div class="stat-card" v-for="(count, statusName) in scheduleStatistics" :key="statusName">
+              <div class="stat-icon">{{ getStatisticIcon(statusName) }}</div>
+              <div class="stat-value">{{ count }}</div>
+              <div class="stat-label">{{ getStatisticLabel(statusName) }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useScheduleStore } from '@/stores/schedule'
 import { getDayOfWeekShort, isWeekend, isToday, formatMonth, getPreviousMonth, getNextMonth } from '@/utils/schedule'
@@ -147,11 +147,52 @@ const currentMonth = ref(scheduleStore.currentMonth)
 const isEditingSchedule = ref(false)
 const selectedDate = ref(null)
 const editedDays = ref({})
+const dropdownPosition = ref({ top: 0, left: 0 })
+const initialApprovedStatus = ref(false)
 
 // 1. Получение статусов из store
 const scheduleStatusesFromStore = computed(() => {
   console.log('Computed statuses:', scheduleStore.statusesSchedule)
   return scheduleStore.statusesSchedule
+})
+
+// Вычисление статистики по расписанию
+const scheduleStatistics = computed(() => {
+  if (!scheduleStore.mySchedule?.userSchedules?.[0]?.days) {
+    return null
+  }
+
+  const days = scheduleStore.mySchedule.userSchedules[0].days
+  const stats = {
+    worked: 0,
+    weekends: 0,
+    vacation: 0,
+    sick: 0,
+    other: 0
+  }
+
+  days.forEach(day => {
+    const status = scheduleStatusesFromStore.value?.find(s => s.id === getEditedDayStatus(day.date))
+    
+    if (!status) return
+
+    const statusName = status.name_rus.toLowerCase()
+    
+    // Определяем категорию по названию статуса
+    if (statusName.includes('отпуск') || statusName.includes('отпускной')) {
+      stats.vacation++
+    } else if (statusName.includes('больниц') || statusName.includes('болезн')) {
+      stats.sick++
+    } else if (statusName.includes('выходной') || statusName.includes('выход')) {
+      stats.weekends++
+    } else if (statusName.includes('рабоч') || statusName.includes('работ') || statusName.includes('смена')) {
+      stats.worked++
+    } else {
+      stats.other++
+    }
+  })
+
+  return stats
 })
 
 // Функции для работы со статусами
@@ -163,6 +204,29 @@ function getStatusColor(statusId) {
 function getStatusShortName(statusId) {
     const status = scheduleStatusesFromStore.value?.find(s => s.id === statusId)
     return status?.short_name || statusId
+}
+
+// Функции для отображения статистики
+function getStatisticIcon(statusName) {
+  const icons = {
+    worked: '✓',
+    weekends: '🏠',
+    vacation: '✈️',
+    sick: '🏥',
+    other: '❓'
+  }
+  return icons[statusName] || '•'
+}
+
+function getStatisticLabel(statusName) {
+  const labels = {
+    worked: 'Отработано дней',
+    weekends: 'Выходных дней',
+    vacation: 'Дней отпуска',
+    sick: 'Больничных дней',
+    other: 'Прочие дни'
+  }
+  return labels[statusName] || statusName
 }
 
 // Загрузка расписания
@@ -188,6 +252,8 @@ async function nextMonth() {
 function startEditing() {
   isEditingSchedule.value = true
   editedDays.value = {}
+  // Сохраняем исходный статус расписания
+  initialApprovedStatus.value = scheduleStore.mySchedule.approved
 }
 
 function cancelEditing() {
@@ -196,12 +262,40 @@ function cancelEditing() {
   editedDays.value = {}
 }
 
-function openStatusDropdown(date) {
+function openStatusDropdown(date, event) {
   selectedDate.value = selectedDate.value === date ? null : date
+  
+  if (selectedDate.value === date && event) {
+    // Вычисляем позицию dropdown относительно кликнутой карточки
+    const card = event.currentTarget
+    const rect = card.getBoundingClientRect()
+    const scheduleBox = document.querySelector('.fullscreen-schedule')
+    const scheduleRect = scheduleBox.getBoundingClientRect()
+    
+    dropdownPosition.value = {
+      top: rect.bottom - scheduleRect.top + 8,
+      left: rect.left - scheduleRect.left + rect.width / 2
+    }
+  }
 }
 
 function selectStatus(date, statusId) {
   editedDays.value[date] = statusId
+  selectedDate.value = null
+}
+
+// Закрытие dropdown при клике вне
+function handleClickOutside(event) {
+  const dropdown = document.querySelector('.status-dropdown-portal')
+  const dayCard = event.target.closest('.day-card')
+  
+  // Если клик на dropdown, ничего не делаем
+  if (dropdown && dropdown.contains(event.target)) return
+  
+  // Если клик на день-карточку, ничего не делаем (обработает openStatusDropdown)
+  if (dayCard) return
+  
+  // Если клик не на dropdown и не на день, закрываем
   selectedDate.value = null
 }
 
@@ -228,12 +322,12 @@ async function toggleApproveStatus() {
 }
 
 async function saveSchedule() {
-  const turnSchedule = ref(false)
   try {
-    if (userStore.isManager && scheduleStore.isStatusMySchedule) {
+    // Если менеджер редактирует закрытое расписание - открываем для редактирования
+    if (userStore.isManager && initialApprovedStatus.value) {
       await toggleApproveStatus()
-      turnSchedule.value = true
     }
+    
     const originalDays = scheduleStore.mySchedule.userSchedules[0].days
     const daysToSend = originalDays.map(day => ({
       date: day.date,
@@ -246,9 +340,9 @@ async function saveSchedule() {
     selectedDate.value = null
     editedDays.value = {}
 
-    if (userStore.isManager && turnSchedule) {
+    // Если менеджер редактировал закрытое расписание - закрываем его обратно
+    if (userStore.isManager && initialApprovedStatus.value) {
       await toggleApproveStatus()
-      turnSchedule.value = false
     }
     
     await loadSchedule()
@@ -265,389 +359,449 @@ onMounted(async () => {
   await userStore.init()
   await loadSchedule()
   await scheduleStore.fetchStatusesSchedule()
+  
+  // Добавляем обработчик клика вне dropdown
+  document.addEventListener('click', handleClickOutside)
+})
+
+// Очистка обработчика при размонтировании
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
 <style scoped>
-/* Сброс отступов для всего экрана */
-body {
-  margin: 0;
-  padding: 0;
-}
-
+/* Общий контейнер */
 .profile-container {
-  max-width: 100vw;
-  min-height: 100vh;
-  margin: 0;
-  padding: 10px;
-  box-sizing: border-box;
-  background: #f5f5f5;
+  padding-top: 80px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-/* Сворачиваемый блок информации */
-.user-info-collapsible {
-  background: white;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  padding: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+/* Заголовок */
+.profile-container h1 {
+  font-size: 28px;
+  margin-bottom: 18px;
 }
 
-.user-info-collapsible summary {
-  font-weight: 600;
-  cursor: pointer;
-  padding: 5px;
-  color: #007bff;
+/* ---- БЛОК ПОЛЬЗОВАТЕЛЯ ---- */
+
+.user-info {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  margin-bottom: 22px;
 }
 
 .user-info-content {
-  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-  font-size: 13px;
+.info-item-name p {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* summary */
+.user-info-summary summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 0;
 }
 
 .info-item {
-  padding: 3px 0;
+  padding: 6px 0;
 }
 
-/* Компактные контролы месяца */
+/* ---- УПРАВЛЕНИЕ МЕСЯЦЕМ ---- */
+
 .month-controls-compact {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  padding: 8px;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.month-btn {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.month-btn:hover {
-  background: #0056b3;
+  gap: 14px;
+  margin: 22px 0;
 }
 
 .month-title {
-  margin: 0;
-  font-size: 16px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.month-btn {
+  background: #4c88ff;
+  color: white;
+  border: none;
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: .25s;
+}
+
+.month-btn:hover {
+  background: #2d6cfa;
+  transform: translateY(-1px);
+}
+
+/* ---- СТАТУС + КНОПКИ ---- */
+
+.approve-section {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px 24px;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+}
+
+.action-buttons {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.edit-btn,
+.save-btn,
+.cancel-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
   font-weight: 600;
-  min-width: 150px;
-  text-align: center;
+  transition: .25s;
 }
 
-/* Полноэкранная таблица */
+/* редактирование */
+.edit-btn {
+  background: #ffb547;
+}
+.edit-btn:hover {
+  background: #e69a2e;
+}
+
+/* сохранить */
+.save-btn {
+  background: #4CAF50;
+  color: white;
+}
+.save-btn:hover {
+  background: #3b9a41;
+}
+
+/* отменить */
+.cancel-btn {
+  background: #888888;
+  color: white;
+}
+.cancel-btn:hover {
+  background: #6b6b6b;
+}
+
+/* ---- ТАБЛИЦА ---- */
+
+.schedule-title {
+  margin-top: 24px;
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
 .fullscreen-schedule {
-  width: 100%;
-  overflow: visible;
   background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.compact-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+  padding: 20px;
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   position: relative;
 }
 
-/* Динамический расчет ширины колонок */
-.compact-table th,
-.compact-table td {
-  width: calc(100vw / 35);
-  max-width: 40px;
-  min-width: 30px;
-  height: 40px;
-  padding: 0;
+/* Сетка дней */
+.schedule-grid {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 8px;
+  margin-bottom: 24px;
+}
+
+.day-card {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 8px 4px;
   text-align: center;
-  vertical-align: middle;
-  border: 1px solid #e0e0e0;
-  font-size: 11px;
+  transition: all 0.25s ease;
+  position: relative;
+  cursor: default;
+  flex: 1;
+  min-width: 0;
 }
 
-.compact-table th {
-  background: #f8f9fa;
-  font-weight: 600;
+.day-card.editing {
+  cursor: pointer;
 }
 
-.compact-date {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 2px;
+.day-card.editing:hover {
+  border-color: #4c88ff;
+  box-shadow: 0 4px 12px rgba(76, 136, 255, 0.2);
+  transform: translateY(-2px);
 }
 
-.compact-day {
-  font-size: 9px;
-  color: #666;
-  text-transform: uppercase;
+/* Выходные */
+.day-card.weekend {
+  background: rgba(255, 107, 107, 0.06);
+  border-color: #ff6b6b;
 }
 
-.compact-number {
-  font-size: 12px;
-  font-weight: bold;
-  color: #333;
-}
-
-.compact-status {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  color: white;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.3);
-}
-
-/* Стили выходных */
-.weekend .compact-number {
+.day-card.weekend .day-header {
   color: #ff6b6b;
 }
 
-/* Стиль сегодняшнего дня */
-.today {
-  border: 2px solid #ffc107 !important;
-  background-color: #fff9e6 !important;
+/* Сегодня */
+.day-card.today {
+  border: 2px solid #4c88ff;
+  background: rgba(76, 136, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(76, 136, 255, 0.1);
 }
 
-/* Легенда статусов */
-.status-legend {
+.day-card.today .day-header {
+  color: #4c88ff;
+}
+
+/* Заголовок дня (день недели + число) */
+.day-header {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px;
-  margin-top: 10px;
-  background: #f8f9fa;
-  border-top: 1px solid #e0e0e0;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.day-name {
+  font-size: 9px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0px;
+}
+
+.day-number {
   font-size: 12px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+/* Статус */
+.day-status {
+  padding: 6px 2px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 26px;
+}
+
+.status-text {
+  line-height: 1.2;
+}
+
+.edited-marker {
+  color: #ffb547;
+  font-size: 16px;
+  font-weight: 900;
+  margin-left: 2px;
+}
+
+/* Dropdown выбора статуса */
+.status-dropdown-portal {
+  position: absolute;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 8px;
+  z-index: 1000;
+  width: auto;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: dropdownAppear 0.2s ease-out;
+}
+
+@keyframes dropdownAppear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.dropdown-item {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: rgba(76, 136, 255, 0.1);
+  color: #4c88ff;
+}
+
+.status-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.dropdown-text {
+  font-weight: 500;
+}
+
+/* Легенда */
+.status-legend {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
+  background: #f9f9f9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
 }
 
 .legend-color {
   width: 14px;
   height: 14px;
-  border-radius: 3px;
-  display: inline-block;
-  border: 1px solid rgba(0,0,0,0.1);
-}
-
-.legend-text {
-  color: #333;
-  font-weight: 500;
-}
-
-h1 {
-  font-size: 18px;
-  margin: 5px 0 15px 0;
-  text-align: center;
-  color: #333;
-}
-
-/* Блок управления расписанием */
-.approve-section {
-  background: white;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.approve-section p {
-  margin: 0 0 10px 0;
-  font-size: 14px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.edit-btn, .save-btn, .cancel-btn {
-  padding: 8px 16px;
-  border: none;
   border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.edit-btn {
-  background: #007bff;
-  color: white;
-}
-
-.edit-btn:hover {
-  background: #0056b3;
-}
-
-.save-btn {
-  background: #28a745;
-  color: white;
-}
-
-.save-btn:hover {
-  background: #218838;
-}
-
-.cancel-btn {
-  background: #dc3545;
-  color: white;
-}
-
-.cancel-btn:hover {
-  background: #c82333;
-}
-
-/* Стиль для редактирования */
-.compact-table td.editing {
-  cursor: pointer;
-  position: relative;
-}
-
-.compact-table td.edited {
-  border: 2px dashed #ff9800 !important;
-}
-
-.compact-status-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.edited-marker {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  color: #ff9800;
-  font-weight: bold;
-  font-size: 16px;
-}
-
-/* Dropdown меню выбора статуса */
-.status-dropdown {
-  position: fixed;
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-  z-index: 10000;
-  max-width: 200px;
-  min-width: 150px;
-}
-
-.dropdown-item {
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  white-space: nowrap;
-  border-bottom: 1px solid #eee;
-}
-
-.dropdown-item:last-child {
-  border-bottom: none;
-}
-
-.dropdown-item:hover {
-  background: #f0f0f0;
-}
-
-.status-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  display: inline-block;
-  border: 1px solid rgba(0,0,0,0.1);
   flex-shrink: 0;
 }
 
-/* Адаптивность */
-@media (min-width: 1600px) {
-  .compact-table th,
-  .compact-table td {
-    max-width: 45px;
-    height: 45px;
+/* ---- СТАТИСТИКА ---- */
+
+.schedule-statistics {
+  margin-top: 28px;
+  padding: 24px;
+  background: linear-gradient(135deg, #f5f7ff 0%, #f0f4ff 100%);
+  border-radius: 16px;
+  border-left: 5px solid #4c88ff;
+}
+
+.schedule-statistics h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  transition: transform 0.25s, box-shadow 0.25s;
+  border-top: 3px solid #4c88ff;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(76, 136, 255, 0.15);
+}
+
+.stat-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4c88ff;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.3;
+}
+
+/* ---- АДАПТИВНОСТЬ ---- */
+
+@media (max-width: 768px) {
+  .schedule-grid {
+    gap: 3px;
   }
-  
-  .compact-number {
-    font-size: 14px;
+
+  .day-card {
+    padding: 6px 3px;
+    flex: 1;
+    min-width: 0;
   }
-  
-  .compact-status {
-    font-size: 16px;
+
+  .day-name {
+    font-size: 8px;
+  }
+
+  .day-number {
+    font-size: 11px;
+  }
+
+  .day-status {
+    font-size: 8px;
+    padding: 5px 2px;
+    min-height: 24px;
+  }
+
+  .status-legend {
+    gap: 8px;
+  }
+
+  .legend-item {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .statistics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .stat-icon {
+    font-size: 28px;
   }
 }
 
-@media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .month-title {
-    font-size: 14px;
-    min-width: 120px;
-  }
-  
-  .compact-table th,
-  .compact-table td {
-    height: 35px;
-    font-size: 10px;
-  }
-  
-  .compact-day {
-    font-size: 8px;
-  }
-  
-  .compact-number {
-    font-size: 11px;
-  }
-  
-  .compact-status {
-    font-size: 12px;
-  }
-  
-  .status-legend {
-    gap: 8px;
-    font-size: 11px;
-  }
-}
 </style>
 
