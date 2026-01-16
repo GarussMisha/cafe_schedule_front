@@ -46,32 +46,42 @@ function goHome () {
   justify-content: right;
   margin: 10;
   padding: 10px 20px;
-  background-color: #161616;
-  border-radius: 15px;
+  background: #fff0ab;
+  backdrop-filter: blur(30px);
+  border-radius: 12px;
+  margin: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
 }
 
 .button {
   padding: 10px 20px;
   font-size: 16px;
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.button:hover {
+  background-color: #ececec;     /* чуть темнее */
+  transform: translateY(-1px);   /* лёгкий подъём — опционально */
+  box-shadow: 0 0 24px #adadadd0;
 }
 
 .btn-main-view,
 .btn-admin-view {
-  background-color: #4caf50; /* Green */
-  color: white;
+  background-color: #ffffff; /* Green */
+  color: rgb(0, 0, 0);
   margin-right: 10px;
 }
 
 .btn-back {
-  background-color: #f44336; /* Red */
-  color: white;
+  background-color: #ffffff; /* Red */
+  color: rgb(0, 0, 0);
   margin-right: 10px;
 }
 
 .btn-logout {
-  background-color: #2196F3; /* Blue */
-  color: white;
+  background-color: #ffffff; /* Blue */
+  color: rgb(0, 0, 0);
 }
 </style>

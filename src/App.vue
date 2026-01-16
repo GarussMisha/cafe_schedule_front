@@ -23,10 +23,17 @@ const showHeadbar = computed(() => {
 </script>
 
 <style>
-  
+
 body {
+  background: linear-gradient(135deg, #fff4c4, #fff3c0, #fcefb9);
+  background-attachment: fixed;     /* чтобы градиент не двигался при скролле */
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  /*overflow-x: hidden; /* предотвращаем горизонтальную прокрутку */
   font-family: 'Roboto', sans-serif;
   font-weight: 400; 
 }
+
 
 </style>

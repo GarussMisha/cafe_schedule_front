@@ -1,8 +1,12 @@
 <template>
   <main>
-    <p>Здесь отображаются расписания сотрудников</p>
+    <h1>Расписание сотрудников</h1>
+    <pre class="info-text">
+      Расписание на следующий месяц можно внести до последнего дня текущего месяца 18:00
+      Изменения расписания осуществляются по согласованию с Менеджером.
+    </pre>
     <div>
-      <h1>Расписание сотрудников</h1>
+      
 
       <!-- Управление месяцем -->
       <div class="month-controls-compact">
@@ -53,81 +57,87 @@
 
       <!-- Расписание всех сотрудников как на ProfileView -->
       <div class="fullscreen-schedule" v-if="scheduleStore.allSchedule?.userSchedules?.[0]?.days">
-        <!-- Расписание для каждого сотрудника -->
-        <div v-for="(userSchedule, userIdx) in scheduleStore.allSchedule.userSchedules" 
-             :key="userSchedule.userId"
-             class="employee-schedule-block">
-          
-          <!-- Информация о сотруднике -->
-          <div class="employee-header">
-            <div class="employee-info">
-              <strong>{{ userSchedule.firstName }} {{ userSchedule.lastName }}</strong>
-              <span class="employee-details">{{ userSchedule.position }} • {{ userSchedule.role }}</span>
+        <!-- Новое колоночное отображение расписания -->
+        <div class="schedule-table">
+          <!-- Заголовок с днями -->
+          <div class="schedule-header">
+            <div class="employee-name-cell">Сотрудник</div>
+            <div v-for="day in scheduleStore.allSchedule.userSchedules[0].days"
+                 :key="day.date"
+                 :class="['day-header-cell', { 'weekend': isWeekend(day.date), 'today': isToday(day.date) }]">
+              <div class="day-name">{{ getDayOfWeekShort(day.date) }}</div>
+              <div class="day-number">{{ new Date(day.date).getDate() }}</div>
             </div>
-            <button v-if="isEditingSchedule && userStore.isManager" 
-                    @click="removeEmployee(userIdx)" 
-                    class="remove-employee-btn">✕ Удалить</button>
           </div>
 
-          <!-- Сетка дней -->
-          <div class="schedule-grid">
+          <!-- Расписания сотрудников -->
+          <div v-for="(userSchedule, userIdx) in scheduleStore.allSchedule.userSchedules"
+               :key="userSchedule.userId"
+               class="schedule-row">
+            <!-- Имя сотрудника -->
+            <div class="employee-name-cell">
+              <div class="employee-cell-content">
+                <div class="employee-name-text">
+                  <strong>{{ userSchedule.firstName }} {{ userSchedule.lastName }}</strong>
+                  <span class="employee-position">{{ userSchedule.position }}</span>
+                </div>
+                <button v-if="isEditingSchedule && userStore.isManager" 
+                        @click="removeEmployee(userIdx)" 
+                        class="remove-employee-btn-small">✕</button>
+              </div>
+            </div>
+
+            <!-- Статусы по дням -->
             <div v-for="day in userSchedule.days"
                  :key="day.date"
                  :class="{
-                   'day-card': true,
+                   'schedule-cell': true,
                    'weekend': isWeekend(day.date),
                    'today': isToday(day.date),
-                   'editing': isEditingSchedule && (userStore.isManager || userStore.currentUser.id === userSchedule.userId)
+                   'editing': isEditingSchedule && (userStore.isManager || userStore.currentUser.id === userSchedule.userId),
+                   'edited': isEditingSchedule && isDateEdited(userIdx, day.date)
                  }"
                  @click.stop="isEditingSchedule && (userStore.isManager || userStore.currentUser.id === userSchedule.userId) && openStatusDropdown(userIdx, day.date, $event)">
               
-              <!-- Дата (день недели + число) -->
-              <div class="day-header">
-                <div class="day-name">{{ getDayOfWeekShort(day.date) }}</div>
-                <div class="day-number">{{ new Date(day.date).getDate() }}</div>
-              </div>
-              
               <!-- Статус -->
-              <div class="day-status" :style="{ backgroundColor: getStatusColor(getEditedDayStatus(userIdx, day.date)) }">
+              <div class="status-box" :style="{ backgroundColor: getStatusColor(getEditedDayStatus(userIdx, day.date)) }">
                 <div class="status-text">{{ getStatusShortName(getEditedDayStatus(userIdx, day.date)) }}</div>
                 <span v-if="isEditingSchedule && isDateEdited(userIdx, day.date)" class="edited-marker">*</span>
               </div>
             </div>
           </div>
 
-          <!-- Dropdown с выбором статуса -->
-          <div v-if="isEditingSchedule && selectedCell?.userIdx === userIdx && selectedCell?.date" 
-               class="status-dropdown-portal"
-               :style="{
-                 top: dropdownPosition.top + 'px',
-                 left: dropdownPosition.left + 'px'
-               }"
-               @click.stop>
-            <div v-for="status in scheduleStatusesFromStore"
-                 :key="status.id"
-                 class="dropdown-item"
-                 @click="selectStatus(userIdx, selectedCell.date, status.id)">
-              <span class="status-color" :style="{ backgroundColor: status.color }"></span>
-              <span class="dropdown-text">{{ status.short_name }}</span>
+          <!-- Сводка сотрудников на смене -->
+          <div class="schedule-row shift-summary-row">
+            <div class="employee-name-cell">
+              <div class="employee-cell-content">
+                <div class="employee-name-text">
+                  <strong>На смене</strong>
+                </div>
+              </div>
+            </div>
+            <div v-for="day in scheduleStore.allSchedule.userSchedules[0].days"
+                 :key="day.date"
+                 :class="['schedule-cell', { 'weekend': isWeekend(day.date), 'today': isToday(day.date) }]">
+              <div class="summary-box">{{ getEmployeesOnShift(day.date) }}</div>
             </div>
           </div>
         </div>
 
-        <!-- Сводка: сколько сотрудников на смене по дням -->
-        <div class="shift-summary">
-          <div class="shift-summary-header">
-            <h3>Сотрудники на смене</h3>
-          </div>
-          <div class="summary-grid">
-            <div v-for="day in scheduleStore.allSchedule.userSchedules[0].days"
-                 :key="day.date"
-                 :class="['summary-card', { 'weekend': isWeekend(day.date), 'today': isToday(day.date) }]">
-              <div class="summary-day">
-                <div class="summary-day-name">{{ getDayOfWeekShort(day.date) }}</div>
-                <div class="summary-day-number">{{ new Date(day.date).getDate() }}</div>
-              </div>
-              <div class="summary-count">{{ getEmployeesOnShift(day.date) }}</div>
-            </div>
+        <!-- Dropdown с выбором статуса (вынесен за пределы таблицы) -->
+        <div v-if="isEditingSchedule && selectedCell" 
+             class="status-dropdown-portal"
+             :style="{
+               top: dropdownPosition.top + 'px',
+               left: dropdownPosition.left + 'px'
+             }"
+             @click.stop>
+          <div v-for="status in scheduleStatusesFromStore"
+               :key="status.id"
+               class="dropdown-item"
+               @click="selectStatus(selectedCell.userIdx, selectedCell.date, status.id)">
+            <span class="status-color" :style="{ backgroundColor: status.color }"></span>
+            <span class="dropdown-text">{{ status.short_name }}</span>
           </div>
         </div>
       </div>
@@ -242,12 +252,10 @@ async function toggleApproveStatus() {
 // Функции редактирования расписания для всех сотрудников
 async function startEditing(role) {
   if (role == 'CAFE_ADMIN') {
-    console.log(`Редактируем от: ${role}`)
     isEditingSchedule.value = true
     editedDays.value = {}
     await loadAllEmployees()
   } else if (role == 'STAFF') {
-    console.log(`Редактируем от: ${role}`)
     isEditingSchedule.value = true
     editedDays.value = {}
     await loadAllEmployees()
@@ -264,15 +272,15 @@ function cancelEditing() {
 // Закрытие dropdown при клике вне
 function handleClickOutside(event) {
   const dropdown = document.querySelector('.status-dropdown-portal')
-  const dayCard = event.target.closest('.day-card')
+  const scheduleCell = event.target.closest('.schedule-cell')
   
   // Если клик на dropdown, ничего не делаем
   if (dropdown && dropdown.contains(event.target)) return
   
-  // Если клик на день-карточку, ничего не делаем (обработает openStatusDropdown)
-  if (dayCard) return
+  // Если клик на ячейку расписания, ничего не делаем (обработает openStatusDropdown)
+  if (scheduleCell) return
   
-  // Если клик не на dropdown и не на день, закрываем
+  // Если клик не на dropdown и не на ячейку, закрываем
   selectedCell.value = null
 }
 //----------------------------------------------//
@@ -285,17 +293,16 @@ function openStatusDropdown(userIdx, date, event) {
     selectedCell.value = { userIdx, date }
     
     if (event) {
-      // Вычисляем позицию dropdown относительно кликнутой карточки
-      const card = event.currentTarget
-      const rect = card.getBoundingClientRect()
+      // Вычисляем позицию dropdown относительно viewport (как в ProfileView)
+      const cell = event.currentTarget
+      const rect = cell.getBoundingClientRect()
+      const scheduleBox = document.querySelector('.fullscreen-schedule')
+      const scheduleRect = scheduleBox.getBoundingClientRect()
       
-      // Найти ближайший parent с position: relative (это .employee-schedule-block)
-      const employeeBlock = card.closest('.employee-schedule-block')
-      const blockRect = employeeBlock.getBoundingClientRect()
-      
+      // Используем координаты относительно scheduleBox
       dropdownPosition.value = {
-        top: rect.bottom - blockRect.top + 8,
-        left: rect.left - blockRect.left + rect.width / 2
+        top: rect.bottom - scheduleRect.top + 8,
+        left: rect.left - scheduleRect.left + rect.width / 2
       }
     }
   }
@@ -395,8 +402,8 @@ const allEmployees = ref([])
 async function loadAllEmployees() {
   try {
     const users = await userStore.fetchAllUsers()
-    // Фильтруем только сотрудников (STAFF)
-    allEmployees.value = users.filter(user => user.roles.includes('STAFF'))
+    // Фильтруем сотрудников (STAFF) и менеджеров (CAFE_ADMIN или MANAGER)
+    allEmployees.value = users.filter(user => user.roles.includes('STAFF') || user.roles.includes('CAFE_ADMIN') || user.roles.includes('MANAGER'))
   } catch (error) {
     console.error('Ошибка при загрузке списка сотрудников:', error)
   }
@@ -478,7 +485,6 @@ const availableEmployees = computed(() => {
 })
 </script>
 
-
 <style scoped>
 main {
   padding-top: 40px;
@@ -488,6 +494,7 @@ main {
   gap: 25px;
   color: #2f2f2f;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  margin: 10px;
 }
 
 /* Заголовки */
@@ -511,8 +518,9 @@ h1 {
 }
 
 .month-btn {
-  background: #fff;
-  border: 1px solid #ccc;
+  background-color: #ffffff;
+  color: rgb(0, 0, 0);
+  border: 1px solid rgba(0, 0, 0, 0.3);
   width: 34px;
   height: 34px;
   border-radius: 6px;
@@ -520,7 +528,9 @@ h1 {
   font-size: 18px;
 }
 .month-btn:hover {
-  background: #eee;
+  background-color: #ececec;
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px #d8d8d8d0;
 }
 
 /* Блок статуса расписания */
@@ -528,10 +538,12 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #fafafa;
-  border: 1px solid #ddd;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   padding: 12px 15px;
   border-radius: 10px;
+  margin-bottom: 20px;
 }
 
 .action-buttons {
@@ -545,215 +557,331 @@ h1 {
 .save-btn,
 .cancel-btn,
 .approve-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 14px;
+  font-weight: 600;
+  transition: .25s;
 }
 
+/* редактирование */
 .edit-btn {
-  background: #ffd966;
+  background: #ffb547;
 }
+.edit-btn:hover {
+  background: #e69a2e;
+}
+
+/* сохранить */
 .save-btn {
-  background: #4caf50;
-  color: #fff;
+  background: #4CAF50;
+}
+.save-btn:hover {
+  background: #35a73c;
 }
 .cancel-btn {
-  background: #f44336;
-  color: #fff;
+  background: #ff4444;
 }
+
+.cancel-btn:hover {
+  background: #ff2525;
+}
+
 .add-employee-btn {
   background: #5da8ff;
-  color: #fff;
+  color: #000000;
+}
+
+.add-employee-btn:hover {
+  background: #489dff;
+  color: #000000;
 }
 
 .approve-btn.not-approved {
-  background: #4caf50;
-  color: white;
+  background: #7aff7f;
+  color: rgb(0, 0, 0);
 }
 .approve-btn.approved {
-  background: #e67e22;
-  color: white;
+  background: #fdad66;
+  color: rgb(0, 0, 0);
 }
 
-/* Таблица */
+/* Таблица расписания — один блок с обводкой */
 .fullscreen-schedule {
   border-radius: 12px;
-  background: white;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   padding: 20px;
-}
-
-/* Блок расписания сотрудника */
-.employee-schedule-block {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  overflow-x: auto;
   position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.employee-schedule-block:last-child {
+/* Сетка расписания */
+.schedule-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  min-width: min-content;
+  border-collapse: collapse;
+}
+
+.schedule-header {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+  min-width: min-content;
+}
+
+.schedule-row {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  min-width: min-content;
+}
+
+/* Ячейка с именем сотрудника */
+.employee-name-cell {
+  padding: 12px 10px;
+  display: flex;
+  align-items: center;
+  background: #fafafa;
+  position: sticky;
+  left: 0;
+  z-index: 15;
+  flex: 0 0 150px;
+  min-width: 150px;
+  width: 150px;
+  border-right: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+}
+
+.schedule-header .employee-name-cell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid #ddd;
+}
+
+.shift-summary-row .employee-name-cell {
+  background: rgba(76, 175, 80, 0.1);
+  color: #2d5016;
   border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
 }
 
-.employee-header {
+.employee-cell-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  width: 100%;
+  gap: 6px;
 }
 
-.employee-info {
+.employee-name-text {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.employee-info strong {
-  font-size: 13px;
-  color: #2c3e50;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.employee-info strong::after {
-  content: ' •';
-  color: #ccc;
-  margin-left: 8px;
-}
-
-.employee-details {
-  font-size: 12px;
-  color: #888;
-  white-space: nowrap;
-}
-
-.remove-employee-btn {
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.2s;
-}
-
-.remove-employee-btn:hover {
-  background: #d32f2f;
-}
-
-/* Сетка дней */
-.schedule-grid {
-  display: flex;
-  gap: 4px;
-  padding-bottom: 8px;
-}
-
-.day-card {
-  background: white;
-  border: 1px solid #e8e8e8;
-  border-radius: 10px;
-  padding: 8px 4px;
-  text-align: center;
-  transition: all 0.25s ease;
-  position: relative;
-  cursor: default;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 
-.day-card.editing {
+.employee-name-text strong {
+  font-size: 12px;
+  color: #2c3e50;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.employee-position {
+  font-size: 10px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove-employee-btn-small {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.remove-employee-btn-small:hover {
+  background: #d32f2f;
+}
+
+/* Ячейка расписания (статус дня) */
+.schedule-cell {
+  padding: 6px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  cursor: default;
+  position: relative;
+  background: white;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 20px;
+  border-right: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+}
+
+.schedule-header .schedule-cell {
+  min-height: auto;
+}
+
+.schedule-cell.editing {
   cursor: pointer;
 }
 
-.day-card.editing:hover {
-  border-color: #4c88ff;
-  box-shadow: 0 4px 12px rgba(76, 136, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-/* Выходные */
-.day-card.weekend {
-  background: rgba(255, 107, 107, 0.06);
-  border-color: #ff6b6b;
-}
-
-.day-card.weekend .day-header {
-  color: #ff6b6b;
-}
-
-/* Сегодня */
-.day-card.today {
-  border: 2px solid #4c88ff;
+.schedule-cell.editing:hover {
   background: rgba(76, 136, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(76, 136, 255, 0.1);
+  border-right-color: #4c88ff;
 }
 
-.day-card.today .day-header {
-  color: #4c88ff;
+.schedule-cell.edited::after {
+  content: '*';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #ffb547;
+  font-size: 16px;
+  font-weight: 900;
 }
 
-/* Заголовок дня (день недели + число) */
-.day-header {
+.shift-summary-row .schedule-cell {
+  border-bottom: none;
+  background: transparent;
+}
+
+/* Выделение столбцов (выходные и текущий день) — на весь столбец */
+.weekend {
+  background: rgba(255, 31, 31, 0.15) !important;
+}
+
+.today {
+  background: rgba(55, 119, 248, 0.25) !important;
+}
+
+/* Для заголовка дней — чуть интенсивнее */
+.day-header-cell.weekend {
+  background: rgba(255, 31, 31, 0.15) !important;
+}
+
+.day-header-cell.today {
+  background: rgba(55, 119, 248, 0.25) !important;
+}
+
+/* Для сводки — лёгкий фон, но с учётом столбца */
+.shift-summary-row .schedule-cell.weekend {
+  background: rgba(230, 52, 52, 0.08) !important;
+}
+
+.shift-summary-row .schedule-cell.today {
+  background: rgba(55, 119, 248, 0.25) !important;
+}
+
+/* Заголовок дня (день и число) */
+.day-header-cell {
+  padding: 8px 2px;
+  text-align: center;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
-  margin-bottom: 6px;
-  font-weight: 600;
+  flex: 1;
+  min-width: 20px;
+  min-height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-right: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
 }
 
-.day-name {
+.day-header-cell .day-name {
   font-size: 9px;
   color: #999;
   text-transform: uppercase;
-  letter-spacing: 0px;
+  font-weight: 600;
 }
 
-.day-number {
+.day-header-cell .day-number {
   font-size: 12px;
   font-weight: 700;
-  color: #2c3e50;
+  color: #000000;
 }
 
-/* Статус */
-.day-status {
-  padding: 6px 2px;
-  border-radius: 5px;
-  font-size: 9px;
+/* Статус в ячейке */
+.status-box {
+  width: 90%;
+  padding: 4px 2px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: rgb(0, 0, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  line-height: 2;
+}
+
+/* Сводка на смене */
+.shift-summary-row {
+  background: rgba(253, 253, 253, 0.897);
+  font-weight: 600;
+}
+
+.shift-summary-row .employee-name-cell {
+  background: rgb(255, 255, 255);
+  color: #2d5016;
+  border-bottom: none;
+}
+
+.summary-box {
+  width: 100%;
+  padding: 4px 2px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 8px;
   font-weight: 700;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  min-height: 26px;
-}
-
-.status-text {
-  line-height: 1.2;
-}
-
-.edited-marker {
-  color: #ffb547;
-  font-size: 16px;
-  font-weight: 900;
-  margin-left: 2px;
+  min-height: 20px;
+  line-height: 1;
+  background: #00000071;
 }
 
 /* Dropdown выбора статуса */
 .status-dropdown-portal {
-  position: absolute;
+  position: fixed;
   background: white;
   border-radius: 12px;
   border: 1px solid #ddd;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   padding: 8px;
-  z-index: 1000;
+  z-index: 9000;
   width: auto;
   white-space: nowrap;
   transform: translateX(-50%);
@@ -799,127 +927,6 @@ h1 {
   font-weight: 500;
 }
 
-/* Сводка сотрудников на смене */
-.shift-summary {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  position: relative;
-}
-
-.shift-summary:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.shift-summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.shift-summary-header h3 {
-  font-size: 13px;
-  color: #2c3e50;
-  font-weight: 600;
-  white-space: nowrap;
-  margin: 0;
-}
-
-.shift-summary-header h3::after {
-  content: ' •';
-  color: #ccc;
-  margin-left: 8px;
-}
-
-.shift-summary-header .summary-stat {
-  font-size: 12px;
-  color: #888;
-  white-space: nowrap;
-}
-
-.summary-grid {
-  background-color: #0a3a6b28;
-  border: 1px solid #08000075;
-  display: flex;
-  gap: 4px;
-  padding-bottom: 8px;
-  padding: 8px 4px;
-  border-radius: 10px;
-}
-
-.summary-card {
-  background: white;
-  border: 1px solid #e8e8e8;
-  border-radius: 10px;
-  padding: 8px 4px;
-  text-align: center;
-  transition: all 0.25s ease;
-  position: relative;
-  cursor: default;
-  flex: 1;
-  min-width: 0;
-}
-
-.summary-card:hover {
-  border-color: #4caf50;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
-  transform: translateY(-2px);
-}
-
-.summary-card.weekend {
-  background: rgba(255, 107, 107, 0.06);
-  border-color: #ff6b6b;
-}
-
-.summary-card.today {
-  border: 2px solid #4caf50;
-  background: rgba(76, 175, 80, 0.12);
-}
-
-.summary-day {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 6px;
-  font-weight: 600;
-  font-size: 9px;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0px;
-}
-
-.summary-day-name {
-  font-size: 9px;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0px;
-}
-
-.summary-day-number {
-  font-size: 12px;
-  font-weight: 700;
-  color: #2c3e50;
-}
-
-.summary-count {
-  padding: 6px 2px;
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgb(255, 255, 255);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  min-height: 26px;
-  background: #94687e;
-}
-
 /* Легенда */
 .status-legend {
   display: flex;
@@ -928,8 +935,8 @@ h1 {
   margin-top: 15px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #ddd;
-  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f7fcdd88;
 }
 
 .legend-item {
@@ -982,5 +989,17 @@ h1 {
   background: #444;
   color: white;
 }
-</style>
 
+/* Убираем границы на последних элементах (чтобы не было двойных) */
+.schedule-row:last-child .schedule-cell {
+  border-bottom: none;
+}
+
+.schedule-cell:last-child {
+  border-right: none;
+}
+
+.schedule-header .day-header-cell:last-child {
+  border-right: none;
+}
+</style>

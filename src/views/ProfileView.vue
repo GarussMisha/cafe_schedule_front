@@ -123,7 +123,6 @@
           <h3>Статистика за месяц</h3>
           <div class="statistics-grid">
             <div class="stat-card" v-for="(count, statusName) in scheduleStatistics" :key="statusName">
-              <div class="stat-icon">{{ getStatisticIcon(statusName) }}</div>
               <div class="stat-value">{{ count }}</div>
               <div class="stat-label">{{ getStatisticLabel(statusName) }}</div>
             </div>
@@ -167,8 +166,7 @@ const scheduleStatistics = computed(() => {
     worked: 0,
     weekends: 0,
     vacation: 0,
-    sick: 0,
-    other: 0
+    sick: 0
   }
 
   days.forEach(day => {
@@ -206,25 +204,12 @@ function getStatusShortName(statusId) {
     return status?.short_name || statusId
 }
 
-// Функции для отображения статистики
-function getStatisticIcon(statusName) {
-  const icons = {
-    worked: '✓',
-    weekends: '🏠',
-    vacation: '✈️',
-    sick: '🏥',
-    other: '❓'
-  }
-  return icons[statusName] || '•'
-}
-
 function getStatisticLabel(statusName) {
   const labels = {
-    worked: 'Отработано дней',
+    worked: 'Рабочих дней',
     weekends: 'Выходных дней',
-    vacation: 'Дней отпуска',
-    sick: 'Больничных дней',
-    other: 'Прочие дни'
+    vacation: 'Отпускных дней',
+    sick: 'Больничных дней'
   }
   return labels[statusName] || statusName
 }
@@ -387,10 +372,10 @@ onBeforeUnmount(() => {
 /* ---- БЛОК ПОЛЬЗОВАТЕЛЯ ---- */
 
 .user-info {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
   border-radius: 16px;
   padding: 24px 28px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
   margin-bottom: 22px;
 }
 
@@ -432,29 +417,28 @@ onBeforeUnmount(() => {
 }
 
 .month-btn {
-  background: #4c88ff;
-  color: white;
-  border: none;
-  font-size: 22px;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  background-color: #ffffff; /* Green */
+  color: rgb(0, 0, 0);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: .25s;
+  font-size: 18px;
 }
-
 .month-btn:hover {
-  background: #2d6cfa;
-  transform: translateY(-1px);
+  background-color: #ececec;     /* чуть темнее */
+  transform: translateY(-1px);   /* лёгкий подъём — опционально */
+  box-shadow: 0 0 12px #d8d8d8d0;
 }
 
 /* ---- СТАТУС + КНОПКИ ---- */
 
 .approve-section {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
   border-radius: 14px;
   padding: 20px 24px;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.08);
   margin-bottom: 20px;
 }
 
@@ -487,7 +471,6 @@ onBeforeUnmount(() => {
 /* сохранить */
 .save-btn {
   background: #4CAF50;
-  color: white;
 }
 .save-btn:hover {
   background: #3b9a41;
@@ -495,11 +478,11 @@ onBeforeUnmount(() => {
 
 /* отменить */
 .cancel-btn {
-  background: #888888;
-  color: white;
+  background: #ff4444;
 }
+
 .cancel-btn:hover {
-  background: #6b6b6b;
+  background: #ff3c3c;
 }
 
 /* ---- ТАБЛИЦА ---- */
@@ -511,10 +494,10 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-schedule {
-  background: white;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
   padding: 20px;
   border-radius: 18px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   position: relative;
 }
 
@@ -527,7 +510,8 @@ onBeforeUnmount(() => {
 }
 
 .day-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
   border: 1px solid #e8e8e8;
   border-radius: 10px;
   padding: 8px 4px;
@@ -685,10 +669,11 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f9f9f9;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 12px;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
 }
 
 .legend-color {
@@ -703,9 +688,9 @@ onBeforeUnmount(() => {
 .schedule-statistics {
   margin-top: 28px;
   padding: 24px;
-  background: linear-gradient(135deg, #f5f7ff 0%, #f0f4ff 100%);
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
   border-radius: 16px;
-  border-left: 5px solid #4c88ff;
 }
 
 .schedule-statistics h3 {
@@ -722,13 +707,13 @@ onBeforeUnmount(() => {
 }
 
 .stat-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.7);
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   text-align: center;
   transition: transform 0.25s, box-shadow 0.25s;
-  border-top: 3px solid #4c88ff;
+  border-top: 2px solid #4c88ff;
 }
 
 .stat-card:hover {
