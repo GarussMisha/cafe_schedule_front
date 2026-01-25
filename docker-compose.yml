@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+
+  vue-app:
+    build: .
+    image: cafe_front
+    container_name: cafe_front_container
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
