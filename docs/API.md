@@ -1,24 +1,28 @@
 # Описание API backend
 
-Привет! 
-Здесь приведён список API на backend.
-Таж жу указано как их вызывать и какой ответ ожидать
+## v2 - 19.05.2026 (актуализация по исходному коду)
 
-## v1 - 29.12.2025 
-### User
-1. auth - Авторизация
-Получение токена 
-```
-POST http://localhost:8080/api/auth/login
-Body:
+> **Важно:** Все schedule endpoints теперь требуют параметр `cafeId`. Структура ответа изменилась — вместо `days` используется `shifts` (с startTime и endTime).
+
+---
+
+## Auth
+
+### POST /api/auth/login — Авторизация
+Получение JWT токена.
+
+**Request Body:**
+```json
 {
   "username": "barista1",
   "password": "staff123"
 }
+```
 
-return:
+**Response (200):**
+```json
 {
-    "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiYXJpc3RhMSIsImlhdCI6MTc2Njk5OTIyMCwiZXhwIjoxNzY3MDg1NjIwfQ.odNB8V7U6y_FrT7iAyf9s9k3pRBz7A8Jb_EriH-GWAo",
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
     "type": "Bearer",
     "id": 3,
     "username": "barista1",
@@ -26,21 +30,25 @@ return:
     "firstName": "Анна",
     "lastName": "Смирнова",
     "position": "Бариста",
-    "roles": [
-        "STAFF"
-    ]
+    "roles": ["STAFF"]
 }
 ```
 
-2. get profile - получение профиля пользователя.
-```
-GET http://localhost:8080/api/profile
-Headers:
-{
-  "Authorization": "token"
-}
+> **Примечание:** `roles` — массив строк (не объектов). `position` включён в ответ.
 
-return:
+---
+
+## Profile
+
+### GET /api/profile — Профиль текущего пользователя
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response (200):**
+```json
 {
     "id": 3,
     "username": "barista1",
@@ -48,21 +56,27 @@ return:
     "firstName": "Анна",
     "lastName": "Смирнова",
     "position": "Бариста",
-    "roles": [
-        "STAFF"
-    ]
+    "roles": ["STAFF"]
 }
 ```
 
-3. get all users (CAFE_ADMIN) - Получение профилей всех пользователей
-```
-GET http://localhost:8080/api/users
-Headers:
-{
-  "Authorization": "token"
-}
+> **Примечание:** `roles` — массив строк. Поле `fullName` отсутствует.
 
-return:
+---
+
+## User Management
+
+### GET /api/users — Все пользователи
+
+**Доступ:** `USER_ADMIN` или `CAFE_ADMIN`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response (200):**
+```json
 [
     {
         "id": 1,
@@ -76,8 +90,7 @@ return:
                 "id": 1,
                 "name": "USER_ADMIN"
             }
-        ],
-        "fullName": "Админ Системы"
+        ]
     },
     {
         "id": 2,
@@ -91,52 +104,25 @@ return:
                 "id": 2,
                 "name": "CAFE_ADMIN"
             }
-        ],
-        "fullName": "Иван Петров"
-    },
-    {
-        "id": 3,
-        "username": "barista1",
-        "email": "barista1@cafe.com",
-        "firstName": "Анна",
-        "lastName": "Смирнова",
-        "position": "Бариста",
-        "roles": [
-            {
-                "id": 3,
-                "name": "STAFF"
-            }
-        ],
-        "fullName": "Анна Смирнова"
-    },
-    {
-        "id": 4,
-        "username": "barista2",
-        "email": "barista2@cafe.com",
-        "firstName": "Дмитрий",
-        "lastName": "Козлов",
-        "position": "Помощник повара",
-        "roles": [
-            {
-                "id": 3,
-                "name": "STAFF"
-            }
-        ],
-        "fullName": "Дмитрий Козлов"
+        ]
     }
 ]
 ```
 
-4. Create user (USER_ADMIN) — Создание нового пользователя
-```
-POST http://localhost:8080/api/users
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
+> **Важно:** `roles` в ответе — массив объектов `{id, name}` (из User entity). Метод `getFullName()` доступен программно, но в JSON не сериализуется.
 
-Body:
+### POST /api/users — Создать пользователя
+
+**Доступ:** `USER_ADMIN`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body (UserDto):**
+```json
 {
   "username": "barista3",
   "firstName": "Егор",
@@ -146,8 +132,10 @@ Body:
   "password": "secret123",
   "roles": ["STAFF"]
 }
+```
 
-Return:
+**Response (201):**
+```json
 {
     "id": 5,
     "username": "barista3",
@@ -160,39 +148,33 @@ Return:
             "id": 3,
             "name": "STAFF"
         }
-    ],
-    "fullName": "Егор Егоров"
+    ]
 }
 ```
 
-5. Delete user (USER_ADMIN) — Удаление пользователя по ID
-```
-DELETE http://localhost:8080/api/users/{id}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
+> **Примечание:** `roles` в body — массив строк (Set<String>). В ответе — массив объектов.
 
-Return: 204 No Content (успешное удаление)
+### PUT /api/users/{id} — Обновить пользователя
+
+**Доступ:** `USER_ADMIN`
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
 ```
 
-6. Update user (USER_ADMIN или сам пользователь) — Обновление данных пользователя
-```
-PUT http://localhost:8080/api/users/{id}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
-
-Body:
+**Request Body (UserDto):**
+```json
 {
   "email": "newemail@cafe.com",
   "password": "newpassword123"
 }
+```
+> Нулевые значения игнорируются.
 
-Return:
+**Response (200):**
+```json
 {
     "id": 4,
     "username": "barista2",
@@ -205,198 +187,161 @@ Return:
             "id": 3,
             "name": "STAFF"
         }
-    ],
-    "fullName": "Дмитрий Козлов"
+    ]
 }
 ```
 
-### Schedule
-1. GET my schedule — Получить своё расписание на месяц
+### DELETE /api/users/{id} — Удалить пользователя
+
+**Доступ:** `USER_ADMIN`
+
+**Headers:**
 ```
-GET http://localhost:8080/api/schedule/my?month={month}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
+Authorization: Bearer <token>
+```
 
-Params:
-{
-  "month": "2025-12-01"
-}
+**Response (200):**
+```
+Пустое тело
+```
 
-Return:
+---
+
+## Schedule
+
+> **Важно:** Все schedule endpoints требуют параметр `cafeId`. Структура использует `shifts` (date + startTime + endTime + status), а не `days`.
+
+### Statuses (DEPRECATED)
+
+**GET /api/schedule/statuses**
+
+> Эндпоинт **не реализован** в бэкенде. Фронтенд использует дефолтные статусы:
+```json
+[
+    { "id": "WORKING",    "color": "#00b10fff", "name_rus": "Рабочая",    "short_name": "Р" },
+    { "id": "OFF",        "color": "#ccccccff", "name_rus": "Выходной",   "short_name": "В" },
+    { "id": "VACATION",   "color": "#c45e5eff", "name_rus": "Отпуск",     "short_name": "О" },
+    { "id": "SICK_LEAVE", "color": "#d5e400ff", "name_rus": "Больничный", "short_name": "Б" }
+]
+```
+> Статусы определены в `ScheduleEntry.Status`: `WORKING`, `OFF`, `VACATION`, `SICK_LEAVE`.
+
+---
+
+### GET /api/schedule/my — Моё расписание
+
+**Доступ:** `STAFF` или `CAFE_ADMIN`
+
+**Query Parameters:**
+- `month` — дата в формате `YYYY-MM-DD` (обязательно)
+- `cafeId` — ID кафе (обязательно)
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request:**
+```
+GET /api/schedule/my?month=2025-12-01&cafeId=1
+```
+
+**Response (200):**
+```json
 {
+    "cafeId": 1,
+    "approved": false,
     "userSchedules": [
         {
-            "userId": 2,
-            "username": "manager",
-            "firstName": "Иван",
-            "lastName": "Петров",
-            "position": "Менеджер кафе",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-02",
-                    "status": "VACATION"
-                },
-                {
-                    "date": "2025-12-03",
-                    "status": "VACATION"
-                },
-                {
-                    "date": "2025-12-04",
-                    "status": "VACATION"
-                },
+            "userId": 3,
+            "username": "barista1",
+            "firstName": "Анна",
+            "lastName": "Смирнова",
+            "position": "Бариста",
+            "shifts": [
                 {
                     "date": "2025-12-05",
+                    "startTime": "09:00",
+                    "endTime": "17:00",
                     "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-06",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-07",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-08",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-09",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-10",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-11",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-12",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-13",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-14",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-15",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-16",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-17",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-18",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-19",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-20",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-21",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-22",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-23",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-24",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-25",
-                    "status": "SICK_LEAVE"
-                },
-                {
-                    "date": "2025-12-26",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-27",
-                    "status": "SICK_LEAVE"
-                },
-                {
-                    "date": "2025-12-28",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-29",
-                    "status": "WORKING"
-                },
-                {
-                    "date": "2025-12-30",
-                    "status": "OFF"
-                },
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
                 }
             ]
         }
-    ],
-    "approved": false
+    ]
 }
 ```
 
-2. POST my schedule — Отправить/обновить своё расписание на месяц
+> **Важно:** `shifts` содержит startTime и endTime (LocalTime), а не просто статус.
+
+---
+
+### POST /api/schedule/my — Сохранить моё расписание
+
+**Доступ:** `STAFF` или `CAFE_ADMIN`
+
+**Query Parameters:**
+- `month` — дата в формате `YYYY-MM-DD` (обязательно)
+- `cafeId` — ID кафе (обязательно)
+
+**Headers:**
 ```
-POST http://localhost:8080/api/schedule/my?month={month}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
-Params:
+**Request Body (MyScheduleDto):**
+```json
 {
-  "month": "2025-12-01"
+    "cafeId": 1,
+    "shifts": [
+        {
+            "date": "2025-12-01",
+            "startTime": "09:00",
+            "endTime": "17:00",
+            "status": "WORKING"
+        },
+        {
+            "date": "2025-12-02",
+            "startTime": null,
+            "endTime": null,
+            "status": "OFF"
+        }
+    ]
 }
+```
 
-Body:
-{
-  "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "VACATION"
-                },
-                ..., (Упращение, тут все дни между 01 и 31)
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
-                }
-            ]
-}
+**Response (200):** FullScheduleDto (см. GET /api/schedule/my)
 
-Return: 
+**Validation:**
+- Дата shifts должна быть в том же месяце, что и `month`
+- startTime должен быть раньше endTime
+- Проверка пересечений с существующими записями
+
+---
+
+### GET /api/schedule/all — Расписание всех сотрудников
+
+**Доступ:** `CAFE_ADMIN` или `USER_ADMIN`
+
+**Query Parameters:**
+- `month` — дата в формате `YYYY-MM-DD` (обязательно)
+- `cafeId` — ID кафе (обязательно)
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request:**
+```
+GET /api/schedule/all?month=2025-12-01&cafeId=1
+```
+
+**Response (200):**
+```json
 {
+    "cafeId": 1,
+    "approved": false,
     "userSchedules": [
         {
             "userId": 2,
@@ -404,54 +349,12 @@ Return:
             "firstName": "Иван",
             "lastName": "Петров",
             "position": "Менеджер кафе",
-            "days": [
+            "shifts": [
                 {
                     "date": "2025-12-01",
-                    "status": "VACATION"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
-                }
-            ]
-        }
-    ],
-    "approved": false
-}
-```
-3. GET all schedule (CAFE_ADMIN) — Получить расписание всех сотрудников на месяц
-```
-GET http://localhost:8080/api/schedule/all?month={month}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
-
-Params:
-{
-  "month": "2025-12-01"
-}
-
-Return:
-{
-    "userSchedules": [
-        {
-            "userId": 2,
-            "username": "manager",
-            "firstName": "Иван",
-            "lastName": "Петров",
-            "position": "Менеджер кафе",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "VACATION"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
+                    "startTime": "10:00",
+                    "endTime": "18:00",
+                    "status": "WORKING"
                 }
             ]
         },
@@ -461,57 +364,40 @@ Return:
             "firstName": "Анна",
             "lastName": "Смирнова",
             "position": "Бариста",
-            "days": [
+            "shifts": [
                 {
                     "date": "2025-12-01",
-                    "status": "WORKING"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "OFF"
-                }
-            ]
-        },
-        {
-            "userId": 4,
-            "username": "barista2",
-            "firstName": "Алёна",
-            "lastName": "Козлова",
-            "position": "Помощник повара",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
+                    "startTime": "08:00",
+                    "endTime": "16:00",
                     "status": "OFF"
                 }
             ]
         }
-    ],
-    "approved": false
+    ]
 }
 ```
 
-4. POST all schedule (CAFE_ADMIN) — Обновить расписание всех сотрудников на месяц
+---
+
+### POST /api/schedule/all — Обновить расписание всех сотрудников
+
+**Доступ:** `CAFE_ADMIN`
+
+**Query Parameters:**
+- `month` — дата в формате `YYYY-MM-DD` (обязательно)
+- `cafeId` — ID кафе (обязательно)
+
+**Headers:**
 ```
-POST http://localhost:8080/api/schedule/all?month={month}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
-Params:
+**Request Body (FullScheduleDto):**
+```json
 {
-  "month": "2025-12-01"
-}
-
-Body:
-{
+    "cafeId": 1,
+    "approved": false,
     "userSchedules": [
         {
             "userId": 2,
@@ -519,214 +405,128 @@ Body:
             "firstName": "Иван",
             "lastName": "Петров",
             "position": "Менеджер кафе",
-            "days": [
+            "shifts": [
                 {
                     "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
-                }
-            ]
-        },
-        {
-            "userId": 3,
-            "username": "barista1",
-            "firstName": "Анна",
-            "lastName": "Смирнова",
-            "position": "Бариста",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "WORKING"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "OFF"
-                }
-            ]
-        },
-        {
-            "userId": 4,
-            "username": "barista2",
-            "firstName": "Алёна",
-            "lastName": "Козлова",
-            "position": "Помощник повара",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
+                    "startTime": "10:00",
+                    "endTime": "18:00",
                     "status": "OFF"
                 }
             ]
         }
-    ],
-    "approved": false
-}
-
-Return: 
-{
-    "userSchedules": [
-        {
-            "userId": 2,
-            "username": "manager",
-            "firstName": "Иван",
-            "lastName": "Петров",
-            "position": "Менеджер кафе",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
-                }
-            ]
-        },
-        {
-            "userId": 3,
-            "username": "barista1",
-            "firstName": "Анна",
-            "lastName": "Смирнова",
-            "position": "Бариста",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "WORKING"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "OFF"
-                }
-            ]
-        },
-        {
-            "userId": 4,
-            "username": "barista2",
-            "firstName": "Алёна",
-            "lastName": "Козлова",
-            "position": "Помощник повара",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "OFF"
-                }
-            ]
-        }
-    ],
-    "approved": false
+    ]
 }
 ```
 
-5. GET status (CAFE_ADMIN) — Получить статус заполнения расписания на месяц
+**Response (200):** FullScheduleDto (см. GET /api/schedule/all)
+
+---
+
+### POST /api/schedule/approve — Утвердить/отклонить расписание
+
+**Доступ:** `CAFE_ADMIN`
+
+**Query Parameters:**
+- `month` — дата в формате `YYYY-MM-DD` (обязательно)
+- `cafeId` — ID кафе (обязательно)
+- `approved` — `true` или `false` (по умолчанию `true`)
+
+**Headers:**
 ```
-GET http://localhost:8080/api/schedule/status?month={month}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
-
-Params:
-{
-  "month": "2025-12-01"
-}
-
-Return:
-{
-  true
-}
-(true / false)
+Authorization: Bearer <token>
 ```
 
-6. POST approve (CAFE_ADMIN) — Утвердить/отклонить расписание на месяц
+**Request:**
 ```
-POST http://localhost:8080/api/schedule/approve?month={month}&approved={approved}
-Headers:
-{
-  "Authorization": "Bearer <token>",
-  "Content-Type": "application/json"
-}
+POST /api/schedule/approve?month=2025-12-01&cafeId=1&approved=true
+```
 
-Params:
-{
-  "month": "2025-12-01",
-  "approved": false
-}
+**Response (200):** FullScheduleDto (см. GET /api/schedule/all)
 
-Return: 
-{
-    "userSchedules": [
-        {
-            "userId": 2,
-            "username": "manager",
-            "firstName": "Иван",
-            "lastName": "Петров",
-            "position": "Менеджер кафе",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "SICK_LEAVE"
-                }
-            ]
-        },
-        {
-            "userId": 3,
-            "username": "barista1",
-            "firstName": "Анна",
-            "lastName": "Смирнова",
-            "position": "Бариста",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "WORKING"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "OFF"
-                }
-            ]
-        },
-        {
-            "userId": 4,
-            "username": "barista2",
-            "firstName": "Алёна",
-            "lastName": "Козлова",
-            "position": "Помощник повара",
-            "days": [
-                {
-                    "date": "2025-12-01",
-                    "status": "OFF"
-                },
-                ...,
-                {
-                    "date": "2025-12-31",
-                    "status": "OFF"
-                }
-            ]
-        }
-    ],
-    "approved": false
-}
+---
+
+### GET /api/schedule/status — Статус утверждения расписания
+
+**Query Parameters:**
+- `month` — дата в формате `YYYY-MM-DD` (обязательно)
+- `cafeId` — ID кафе (обязательно)
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Request:**
+```
+GET /api/schedule/status?month=2025-12-01&cafeId=1
+```
+
+**Response (200):**
+```json
+true
+```
+или
+```json
+false
+```
+
+---
+
+## Роли
+
+| Роль | Описание |
+|------|----------|
+| `USER_ADMIN` | Управление пользователями (CRUD) |
+| `CAFE_ADMIN` | Управление расписанием кафе |
+| `STAFF` | Просмотр/редактирование своего расписания |
+
+---
+
+## DTO-структуры (для справки)
+
+### JwtResponse
+```
+token: String
+type: "Bearer"
+id: Long
+username: String
+email: String
+firstName: String
+lastName: String
+position: String
+roles: List<String>
+```
+
+### MyScheduleDto (для POST /api/schedule/my)
+```
+cafeId: Long (required)
+shifts: List<Shift>
+  - date: LocalDate (required)
+  - startTime: LocalTime (required)
+  - endTime: LocalTime (required)
+  - status: ScheduleEntry.Status (required)
+```
+
+### FullScheduleDto (ответ всех schedule endpoints)
+```
+cafeId: Long (required)
+approved: boolean
+userSchedules: List<UserSchedule>
+  - userId: Long
+  - username: String
+  - firstName: String
+  - lastName: String
+  - position: String
+  - shifts: List<Shift>
+```
+
+### UserDto (для POST/PUT /api/users)
+```
+username: String (min 3, max 20)
+email: String (email format)
+password: String (min 6, max 40)
+firstName: String
+lastName: String
+position: String
+roles: Set<String>
 ```
