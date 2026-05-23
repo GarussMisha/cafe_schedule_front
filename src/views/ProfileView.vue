@@ -4,7 +4,6 @@
       <h1>Профиль пользователя</h1>
       
       <!-- Информация о пользователе -->
-      <!--Новая-->
       <div class="user-info" v-if="userStore.currentUser">
         <div class="user-info-content">
           <div class="info-item-name">
@@ -32,7 +31,6 @@
         </div>
       </div>
 
-      
       <!-- Управление месяцем -->
       <div class="month-controls-compact">
         <button @click="previousMonth" class="month-btn">‹</button>
@@ -43,7 +41,6 @@
       <div class="approve-section">
         <p>Статус вашего расписания: <strong>{{ scheduleStore.mySchedule?.approved ? 'Закрыто' : 'Открыто' }}</strong></p>
         
-        <!-- Кнопка редактирования (видна только если не утверждено) -->
         <div class="action-buttons" v-if="!scheduleStore.mySchedule?.approved || userStore.isManager">
           <template v-if="!isEditingSchedule">
             <button @click="startEditing" class="edit-btn">
@@ -61,40 +58,84 @@
         </div>
       </div>
 
-      <!-- Таблица расписания на весь экран -->
+      <!-- Таблица расписания со смёнами -->
       <div class="schedule-title">
         <strong>Расписание на {{ formatMonth(currentMonth) }}</strong>
       </div>
 
-      <div class="fullscreen-schedule" v-if="scheduleStore.mySchedule?.userSchedules?.[0]?.days">
-        <div class="schedule-grid">
-          <!-- Ячейки для каждого дня -->
-          <div v-for="day in scheduleStore.mySchedule.userSchedules[0].days"
-               :key="day.date"
+      <div class="fullscreen-schedule" v-if="scheduleStore.mySchedule?.userSchedules?.[0]?.shifts">
+        <div class="schedule-table">
+          <!-- Заголовок таблицы -->
+          <div class="schedule-header">
+            <div class="header-date">Дата</div>
+            <div class="header-day">День</div>
+            <div class="header-time">Время работы</div>
+            <div class="header-status">Статус</div>
+          </div>
+
+          <!-- Строки со сменами -->
+          <div v-for="shift in scheduleStore.mySchedule.userSchedules[0].shifts"
+               :key="shift.date"
                :class="{
-                 'day-card': true,
-                 'weekend': isWeekend(day.date),
-                 'today': isToday(day.date),
-                 'editing': isEditingSchedule
-               }"
-               @click.stop="isEditingSchedule && openStatusDropdown(day.date, $event)">
+                 'schedule-row': true,
+                 'weekend': isWeekend(shift.date),
+                 'today': isToday(shift.date)
+               }">
             
-            <!-- Дата (день недели + число) -->
-            <div class="day-header">
-              <div class="day-name">{{ getDayOfWeekShort(day.date) }}</div>
-              <div class="day-number">{{ new Date(day.date).getDate() }}</div>
+            <!-- Дата -->
+            <div class="cell-date">{{ new Date(shift.date).getDate() }}</div>
+
+            <!-- День недели -->
+            <div class="cell-day">{{ getDayOfWeekShort(shift.date) }}</div>
+
+            <!-- Время смены -->
+            <div class="cell-time">
+              <template v-if="!isEditingSchedule">
+                <span v-if="getEditedShift(shift.date).startTime" class="time-display">
+                  {{ getEditedShift(shift.date).startTime }} - {{ getEditedShift(shift.date).endTime }}
+                </span>
+                <span v-else class="empty-time">—</span>
+              </template>
+              <template v-else>
+                <input 
+                  type="time" 
+                  :value="getEditedShift(shift.date).startTime"
+                  @input="updateShiftTime(shift.date, 'startTime', $event.target.value)"
+                  class="time-input"
+                />
+                <span class="time-sep">—</span>
+                <input 
+                  type="time"
+                  :value="getEditedShift(shift.date).endTime"
+                  @input="updateShiftTime(shift.date, 'endTime', $event.target.value)"
+                  class="time-input"
+                />
+              </template>
             </div>
-            
-            <!-- Статус -->
-            <div class="day-status" :style="{ backgroundColor: getStatusColor(getEditedDayStatus(day.date)) }">
-              <div class="status-text">{{ getStatusShortName(getEditedDayStatus(day.date)) }}</div>
-              <span v-if="isEditingSchedule && isDateEdited(day.date)" class="edited-marker">*</span>
+
+            <!-- Статус смены -->
+            <div class="cell-status">
+              <div 
+                v-if="!isEditingSchedule"
+                class="status-box"
+                :style="{ backgroundColor: getStatusColor(getEditedShift(shift.date).status) }">
+                {{ getStatusShortName(getEditedShift(shift.date).status) }}
+                <span v-if="isShiftEdited(shift.date)" class="edited-marker">*</span>
+              </div>
+              <button
+                v-else
+                class="status-selector"
+                :style="{ backgroundColor: getStatusColor(getEditedShift(shift.date).status) }"
+                @click="openStatusDropdown(shift.date, $event)">
+                {{ getStatusShortName(getEditedShift(shift.date).status) }}
+                <span v-if="isShiftEdited(shift.date)" class="edited-marker">*</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Dropdown с выбором статуса (вне контейнера) -->
-        <div v-if="isEditingSchedule && selectedDate" 
+        <!-- Dropdown с выбором статуса -->
+        <div v-if="isEditingSchedule && selectedShiftDate"
              class="status-dropdown-portal"
              :style="{
                top: dropdownPosition.top + 'px',
@@ -104,28 +145,28 @@
           <div v-for="status in scheduleStatusesFromStore"
                :key="status.id"
                class="dropdown-item"
-               @click="selectStatus(selectedDate, status.id)">
+               @click="selectStatus(selectedShiftDate, status.id)">
             <span class="status-color" :style="{ backgroundColor: status.color }"></span>
-            <span class="dropdown-text">{{ status.short_name }}</span>
+            <span class="dropdown-text">{{ status.short_name }} - {{ status.name_rus }}</span>
           </div>
         </div>
-        
-        <!-- Легенда статусов из store -->
-        <div class="status-legend" v-if="scheduleStatusesFromStore">
-          <div class="legend-item" v-for="status in scheduleStatusesFromStore" :key="status.id">
-            <span class="legend-color" :style="{ backgroundColor: status.color }"></span>
-            <span class="legend-text">{{ status.short_name }} - {{ status.name_rus }}</span>
-          </div>
-        </div>
+      </div>
 
-        <!-- Статистика по расписанию -->
-        <div class="schedule-statistics" v-if="scheduleStatistics">
-          <h3>Статистика за месяц</h3>
-          <div class="statistics-grid">
-            <div class="stat-card" v-for="(count, statusName) in scheduleStatistics" :key="statusName">
-              <div class="stat-value">{{ count }}</div>
-              <div class="stat-label">{{ getStatisticLabel(statusName) }}</div>
-            </div>
+      <!-- Легенда статусов -->
+      <div class="status-legend" v-if="scheduleStatusesFromStore">
+        <div class="legend-item" v-for="status in scheduleStatusesFromStore" :key="status.id">
+          <span class="legend-color" :style="{ backgroundColor: status.color }"></span>
+          <span class="legend-text">{{ status.short_name }} - {{ status.name_rus }}</span>
+        </div>
+      </div>
+
+      <!-- Статистика -->
+      <div class="schedule-statistics" v-if="scheduleStatistics">
+        <h3>Статистика за месяц</h3>
+        <div class="statistics-grid">
+          <div class="stat-card" v-for="(count, statusName) in scheduleStatistics" :key="statusName">
+            <div class="stat-value">{{ count }}</div>
+            <div class="stat-label">{{ getStatisticLabel(statusName) }}</div>
           </div>
         </div>
       </div>
@@ -144,232 +185,194 @@ const scheduleStore = useScheduleStore()
 
 const currentMonth = ref(scheduleStore.currentMonth)
 const isEditingSchedule = ref(false)
-const selectedDate = ref(null)
-const editedDays = ref({})
+const selectedShiftDate = ref(null)
+const editedShifts = ref({})
 const dropdownPosition = ref({ top: 0, left: 0 })
 const initialApprovedStatus = ref(false)
 
-// 1. Получение статусов из store
-const scheduleStatusesFromStore = computed(() => {
-  console.log('Computed statuses:', scheduleStore.statusesSchedule)
-  return scheduleStore.statusesSchedule
-})
+const scheduleStatusesFromStore = computed(() => scheduleStore.statusesSchedule)
 
-// Вычисление статистики по расписанию
 const scheduleStatistics = computed(() => {
-  if (!scheduleStore.mySchedule?.userSchedules?.[0]?.days) {
-    return null
-  }
-
-  const days = scheduleStore.mySchedule.userSchedules[0].days
-  const stats = {
-    worked: 0,
-    weekends: 0,
-    vacation: 0,
-    sick: 0
-  }
-
-  days.forEach(day => {
-    const status = scheduleStatusesFromStore.value?.find(s => s.id === getEditedDayStatus(day.date))
-    
+  if (!scheduleStore.mySchedule?.userSchedules?.[0]?.shifts) return null
+  
+  const shifts = scheduleStore.mySchedule.userSchedules[0].shifts
+  const stats = { worked: 0, weekends: 0, vacation: 0, sick: 0 }
+  
+  shifts.forEach(shift => {
+    const status = scheduleStatusesFromStore.value?.find(s => s.id === getEditedShift(shift.date).status)
     if (!status) return
-
-    const statusName = status.name_rus.toLowerCase()
     
-    // Определяем категорию по названию статуса
-    if (statusName.includes('отпуск') || statusName.includes('отпускной')) {
-      stats.vacation++
-    } else if (statusName.includes('больниц') || statusName.includes('болезн')) {
-      stats.sick++
-    } else if (statusName.includes('выходной') || statusName.includes('выход')) {
-      stats.weekends++
-    } else if (statusName.includes('рабоч') || statusName.includes('работ') || statusName.includes('смена')) {
-      stats.worked++
-    } else {
-      stats.other++
-    }
+    const name = status.name_rus.toLowerCase()
+    if (name.includes('отпуск')) stats.vacation++
+    else if (name.includes('больниц')) stats.sick++
+    else if (name.includes('выходной') || name.includes('выход')) stats.weekends++
+    else if (name.includes('рабоч') || name.includes('смена')) stats.worked++
   })
-
+  
   return stats
 })
 
-// Функции для работы со статусами
 function getStatusColor(statusId) {
-    const status = scheduleStatusesFromStore.value?.find(s => s.id === statusId)
-    return status?.color || '#f1f1f1ff'
+  return scheduleStatusesFromStore.value?.find(s => s.id === statusId)?.color || '#f1f1f1ff'
 }
 
 function getStatusShortName(statusId) {
-    const status = scheduleStatusesFromStore.value?.find(s => s.id === statusId)
-    return status?.short_name || statusId
+  return scheduleStatusesFromStore.value?.find(s => s.id === statusId)?.short_name || statusId
 }
 
-function getStatisticLabel(statusName) {
+function getStatisticLabel(name) {
   const labels = {
     worked: 'Рабочих дней',
     weekends: 'Выходных дней',
     vacation: 'Отпускных дней',
     sick: 'Больничных дней'
   }
-  return labels[statusName] || statusName
+  return labels[name] || name
 }
 
-// Загрузка расписания
 async function loadSchedule() {
   await scheduleStore.fetchMySchedule(currentMonth.value)
 }
 
-// Переключение месяцев
-// Предыдущий месяц
 async function previousMonth() {
   currentMonth.value = getPreviousMonth(currentMonth.value)
   scheduleStore.currentMonth = currentMonth.value
   await loadSchedule()
 }
-// Следующий месяц
+
 async function nextMonth() {
   currentMonth.value = getNextMonth(currentMonth.value)
   scheduleStore.currentMonth = currentMonth.value
   await loadSchedule()
 }
 
-// Функции редактирования расписания
 function startEditing() {
   isEditingSchedule.value = true
-  editedDays.value = {}
-  // Сохраняем исходный статус расписания
+  editedShifts.value = {}
   initialApprovedStatus.value = scheduleStore.mySchedule.approved
 }
 
 function cancelEditing() {
   isEditingSchedule.value = false
-  selectedDate.value = null
-  editedDays.value = {}
+  selectedShiftDate.value = null
+  editedShifts.value = {}
+}
+
+function getEditedShift(date) {
+  if (editedShifts.value.hasOwnProperty(date)) {
+    return editedShifts.value[date]
+  }
+  const original = scheduleStore.mySchedule.userSchedules[0].shifts.find(s => s.date === date)
+  return original || { date, startTime: '', endTime: '', status: 'OFF' }
+}
+
+function isShiftEdited(date) {
+  return editedShifts.value.hasOwnProperty(date)
+}
+
+function updateShiftTime(date, field, value) {
+  if (!editedShifts.value[date]) {
+    editedShifts.value[date] = { ...getEditedShift(date) }
+  }
+  editedShifts.value[date][field] = value
 }
 
 function openStatusDropdown(date, event) {
-  selectedDate.value = selectedDate.value === date ? null : date
+  selectedShiftDate.value = selectedShiftDate.value === date ? null : date
   
-  if (selectedDate.value === date && event) {
-    // Вычисляем позицию dropdown относительно кликнутой карточки
-    const card = event.currentTarget
-    const rect = card.getBoundingClientRect()
-    const scheduleBox = document.querySelector('.fullscreen-schedule')
-    const scheduleRect = scheduleBox.getBoundingClientRect()
+  if (selectedShiftDate.value === date && event) {
+    const button = event.currentTarget
+    const rect = button.getBoundingClientRect()
+    const box = document.querySelector('.fullscreen-schedule')
+    const boxRect = box.getBoundingClientRect()
     
     dropdownPosition.value = {
-      top: rect.bottom - scheduleRect.top + 8,
-      left: rect.left - scheduleRect.left + rect.width / 2
+      top: rect.bottom - boxRect.top + 8,
+      left: rect.left - boxRect.left + rect.width / 2
     }
   }
 }
 
 function selectStatus(date, statusId) {
-  editedDays.value[date] = statusId
-  selectedDate.value = null
+  if (!editedShifts.value[date]) {
+    editedShifts.value[date] = { ...getEditedShift(date) }
+  }
+  editedShifts.value[date].status = statusId
+  selectedShiftDate.value = null
 }
 
-// Закрытие dropdown при клике вне
 function handleClickOutside(event) {
   const dropdown = document.querySelector('.status-dropdown-portal')
-  const dayCard = event.target.closest('.day-card')
+  const button = event.target.closest('.status-selector')
   
-  // Если клик на dropdown, ничего не делаем
   if (dropdown && dropdown.contains(event.target)) return
+  if (button) return
   
-  // Если клик на день-карточку, ничего не делаем (обработает openStatusDropdown)
-  if (dayCard) return
-  
-  // Если клик не на dropdown и не на день, закрываем
-  selectedDate.value = null
-}
-
-function isDateEdited(date) {
-  return editedDays.value.hasOwnProperty(date)
-}
-
-function getEditedDayStatus(date) {
-  if (editedDays.value.hasOwnProperty(date)) {
-    return editedDays.value[date]
-  }
-  const originalDay = scheduleStore.mySchedule.userSchedules[0].days.find(d => d.date === date)
-  return originalDay?.status
-}
-
-// Изменение статуса утверждения расписания
-async function toggleApproveStatus() {
-  const newStatus = !scheduleStore.mySchedule.approved
-  try {
-    await scheduleStore.changeApproveStatus(currentMonth.value, newStatus)
-  } catch (error) {
-    console.error('Ошибка при изменении статуса:', error)
-  }
+  selectedShiftDate.value = null
 }
 
 async function saveSchedule() {
   try {
-    // Если менеджер редактирует закрытое расписание - открываем для редактирования
     if (userStore.isManager && initialApprovedStatus.value) {
-      await toggleApproveStatus()
+      await scheduleStore.changeApproveStatus(currentMonth.value, false)
     }
     
-    const originalDays = scheduleStore.mySchedule.userSchedules[0].days
-    const daysToSend = originalDays.map(day => ({
-      date: day.date,
-      status: getEditedDayStatus(day.date)
+    const shifts = scheduleStore.mySchedule.userSchedules[0].shifts
+    const shiftsToSend = shifts.map(shift => ({
+      date: shift.date,
+      startTime: getEditedShift(shift.date).startTime,
+      endTime: getEditedShift(shift.date).endTime,
+      status: getEditedShift(shift.date).status
     }))
 
-    await scheduleStore.updateMySchedule(currentMonth.value, daysToSend)
+    await scheduleStore.updateMySchedule(currentMonth.value, shiftsToSend)
     
     isEditingSchedule.value = false
-    selectedDate.value = null
-    editedDays.value = {}
+    selectedShiftDate.value = null
+    editedShifts.value = {}
 
-    // Если менеджер редактировал закрытое расписание - закрываем его обратно
     if (userStore.isManager && initialApprovedStatus.value) {
-      await toggleApproveStatus()
+      await scheduleStore.changeApproveStatus(currentMonth.value, true)
     }
     
     await loadSchedule()
   } catch (error) {
-    console.error('Ошибка при сохранении расписания:', error)
+    console.error('Ошибка при сохранении:', error)
+    alert('Ошибка при сохранении расписания')
   }
 }
 
-
-
-
-// Загрузка данных при монтировании
 onMounted(async () => {
   await userStore.init()
+  
+  if (userStore.currentUser?.cafeId) {
+    scheduleStore.cafeId.value = userStore.currentUser.cafeId
+  }
+  
   await loadSchedule()
   await scheduleStore.fetchStatusesSchedule()
   
-  // Добавляем обработчик клика вне dropdown
   document.addEventListener('click', handleClickOutside)
 })
 
-// Очистка обработчика при размонтировании
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
 <style scoped>
-/* Общий контейнер */
 .profile-container {
   padding-top: 80px;
   max-width: 1200px;
   margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
-/* Заголовок */
 .profile-container h1 {
   font-size: 28px;
   margin-bottom: 18px;
 }
-
-/* ---- БЛОК ПОЛЬЗОВАТЕЛЯ ---- */
 
 .user-info {
   background: rgba(255, 255, 255, 0.4);
@@ -390,7 +393,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-/* summary */
 .user-info-summary summary {
   cursor: pointer;
   font-weight: 600;
@@ -400,8 +402,6 @@ onBeforeUnmount(() => {
 .info-item {
   padding: 6px 0;
 }
-
-/* ---- УПРАВЛЕНИЕ МЕСЯЦЕМ ---- */
 
 .month-controls-compact {
   display: flex;
@@ -414,10 +414,12 @@ onBeforeUnmount(() => {
 .month-title {
   font-size: 22px;
   font-weight: 700;
+  min-width: 200px;
+  text-align: center;
 }
 
 .month-btn {
-  background-color: #ffffff; /* Green */
+  background-color: #ffffff;
   color: rgb(0, 0, 0);
   border: 1px solid rgba(0, 0, 0, 0.3);
   width: 34px;
@@ -425,14 +427,14 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   cursor: pointer;
   font-size: 18px;
-}
-.month-btn:hover {
-  background-color: #ececec;     /* чуть темнее */
-  transform: translateY(-1px);   /* лёгкий подъём — опционально */
-  box-shadow: 0 0 12px #d8d8d8d0;
+  transition: all 0.2s;
 }
 
-/* ---- СТАТУС + КНОПКИ ---- */
+.month-btn:hover {
+  background-color: #ececec;
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px #d8d8d8d0;
+}
 
 .approve-section {
   background: rgba(255, 255, 255, 0.4);
@@ -449,34 +451,31 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.edit-btn,
-.save-btn,
-.cancel-btn {
+.edit-btn, .save-btn, .cancel-btn {
   padding: 10px 16px;
   border-radius: 10px;
   border: none;
   cursor: pointer;
   font-weight: 600;
-  transition: .25s;
+  transition: all 0.25s;
 }
 
-/* редактирование */
 .edit-btn {
   background: #ffb547;
 }
+
 .edit-btn:hover {
   background: #e69a2e;
 }
 
-/* сохранить */
 .save-btn {
   background: #4CAF50;
 }
+
 .save-btn:hover {
   background: #3b9a41;
 }
 
-/* отменить */
 .cancel-btn {
   background: #ff4444;
 }
@@ -484,8 +483,6 @@ onBeforeUnmount(() => {
 .cancel-btn:hover {
   background: #ff3c3c;
 }
-
-/* ---- ТАБЛИЦА ---- */
 
 .schedule-title {
   margin-top: 24px;
@@ -499,121 +496,163 @@ onBeforeUnmount(() => {
   padding: 20px;
   border-radius: 18px;
   position: relative;
-}
-
-/* Сетка дней */
-.schedule-grid {
-  display: flex;
-  gap: 4px;
-  padding-bottom: 8px;
+  overflow-x: auto;
   margin-bottom: 24px;
 }
 
-.day-card {
-  background: rgba(255, 255, 255, 0.4);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-  border: 1px solid #e8e8e8;
-  border-radius: 10px;
-  padding: 8px 4px;
-  text-align: center;
-  transition: all 0.25s ease;
-  position: relative;
-  cursor: default;
-  flex: 1;
-  min-width: 0;
-}
-
-.day-card.editing {
-  cursor: pointer;
-}
-
-.day-card.editing:hover {
-  border-color: #4c88ff;
-  box-shadow: 0 4px 12px rgba(76, 136, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-/* Выходные */
-.day-card.weekend {
-  background: rgba(255, 107, 107, 0.06);
-  border-color: #ff6b6b;
-}
-
-.day-card.weekend .day-header {
-  color: #ff6b6b;
-}
-
-/* Сегодня */
-.day-card.today {
-  border: 2px solid #4c88ff;
-  background: rgba(76, 136, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(76, 136, 255, 0.1);
-}
-
-.day-card.today .day-header {
-  color: #4c88ff;
-}
-
-/* Заголовок дня (день недели + число) */
-.day-header {
+.schedule-table {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 6px;
-  font-weight: 600;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.day-name {
-  font-size: 9px;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0px;
-}
-
-.day-number {
-  font-size: 12px;
-  font-weight: 700;
-  color: #2c3e50;
-}
-
-/* Статус */
-.day-status {
-  padding: 6px 2px;
-  border-radius: 5px;
-  font-size: 9px;
-  font-weight: 700;
+.schedule-header {
+  display: grid;
+  grid-template-columns: 60px 80px 150px 100px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.header-date, .header-day, .header-time, .header-status {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.schedule-row {
+  display: grid;
+  grid-template-columns: 60px 80px 150px 100px;
+  gap: 12px;
+  padding: 12px 16px;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+  background: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s;
+}
+
+.schedule-row.weekend {
+  background: rgba(255, 107, 107, 0.06);
+}
+
+.schedule-row.today {
+  background: rgba(76, 136, 255, 0.12);
+  border-left: 3px solid #4c88ff;
+}
+
+.schedule-row:hover {
+  background: rgba(76, 136, 255, 0.08);
+}
+
+.cell-date {
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.cell-day {
+  text-align: center;
+  font-size: 13px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.cell-time {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  min-height: 26px;
+  gap: 4px;
+  font-size: 13px;
+  min-height: 36px;
 }
 
-.status-text {
-  line-height: 1.2;
+.time-display {
+  font-weight: 500;
+}
+
+.empty-time {
+  color: #999;
+}
+
+.time-input {
+  width: 65px;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+}
+
+.time-sep {
+  color: #999;
+  margin: 0 2px;
+}
+
+.cell-status {
+  display: flex;
+  justify-content: center;
+}
+
+.status-box {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-selector {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 70px;
+  justify-content: center;
+}
+
+.status-selector:hover {
+  filter: brightness(0.9);
+  transform: translateY(-1px);
 }
 
 .edited-marker {
-  color: #ffb547;
-  font-size: 16px;
+  color: #ffeb3b;
+  font-size: 14px;
   font-weight: 900;
-  margin-left: 2px;
 }
 
-/* Dropdown выбора статуса */
 .status-dropdown-portal {
   position: absolute;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #ddd;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-  padding: 8px;
+  padding: 4px;
   z-index: 1000;
-  width: auto;
-  white-space: nowrap;
   transform: translateX(-50%);
   animation: dropdownAppear 0.2s ease-out;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 @keyframes dropdownAppear {
@@ -628,14 +667,13 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-item {
-  padding: 10px 12px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 12px;
-  white-space: nowrap;
   transition: background 0.2s;
 }
 
@@ -647,7 +685,7 @@ onBeforeUnmount(() => {
 .status-color {
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
@@ -655,11 +693,12 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-/* Легенда */
 .status-legend {
   margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  border-radius: 8px;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -670,20 +709,17 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   font-size: 12px;
   background: rgba(255, 255, 255, 0.4);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
 }
 
 .legend-color {
   width: 14px;
   height: 14px;
-  border-radius: 4px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
-
-/* ---- СТАТИСТИКА ---- */
 
 .schedule-statistics {
   margin-top: 28px;
@@ -713,23 +749,18 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   text-align: center;
   transition: transform 0.25s, box-shadow 0.25s;
-  border-top: 2px solid #4c88ff;
+  border-top: 2px solid #667eea;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(76, 136, 255, 0.15);
-}
-
-.stat-icon {
-  font-size: 32px;
-  margin-bottom: 10px;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #4c88ff;
+  color: #667eea;
   margin-bottom: 8px;
 }
 
@@ -739,54 +770,25 @@ onBeforeUnmount(() => {
   line-height: 1.3;
 }
 
-/* ---- АДАПТИВНОСТЬ ---- */
-
 @media (max-width: 768px) {
-  .schedule-grid {
-    gap: 3px;
-  }
-
-  .day-card {
-    padding: 6px 3px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .day-name {
-    font-size: 8px;
-  }
-
-  .day-number {
-    font-size: 11px;
-  }
-
-  .day-status {
-    font-size: 8px;
-    padding: 5px 2px;
-    min-height: 24px;
-  }
-
-  .status-legend {
+  .schedule-header, .schedule-row {
+    grid-template-columns: 50px 60px 100px 80px;
     gap: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
 
-  .legend-item {
+  .cell-time {
     font-size: 11px;
-    padding: 6px 8px;
   }
 
-  .statistics-grid {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  .time-input {
+    width: 50px;
+    font-size: 11px;
   }
 
   .stat-value {
-    font-size: 28px;
-  }
-
-  .stat-icon {
-    font-size: 28px;
+    font-size: 24px;
   }
 }
-
 </style>
-

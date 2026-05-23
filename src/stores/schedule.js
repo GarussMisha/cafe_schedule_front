@@ -8,6 +8,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     const allSchedule = ref([])
     const statusesSchedule = ref([])
     const scheduleStatus = ref([])
+    const cafeId = ref(1)
     
     // Текущий месяц в формате YYYY-MM-DD (первый день месяца)
     const currentMonth = ref(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
@@ -19,7 +20,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     //1. Получение расписания по текущему пользователю.
     async function fetchMySchedule(month = currentMonth.value) {
         try {
-            const data = await getMySchedule(month);
+            const data = await getMySchedule(month, cafeId.value);
             mySchedule.value = data;
         } catch (error) {
             console.error('Error in fetchMySchedule:', error);
@@ -30,7 +31,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     //2. Получение расписание на указанный месяц по всем сотрудникам.
     async function fetchAllSchedule(month = currentMonth.value) {
         try {
-            const data = await getAllSchedule(month);
+            const data = await getAllSchedule(month, cafeId.value);
             allSchedule.value = data;
         } catch (error) {
             console.error('Error in fetchAllSchedule:', error);
@@ -41,7 +42,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     //3. Получение статусов смен.
     async function fetchStatusesSchedule() {
         try {
-            const data = await getStatusesSchedule();
+            const data = await getStatusesSchedule(cafeId.value);
             statusesSchedule.value = data;
         } catch (error) {
             console.error('Error in fetchStatusesSchedule:', error);
@@ -52,7 +53,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     //4. Получение статуса расписания (утвержден/не утвержден)
     async function fetchScheduleStatus(month = currentMonth.value) {
         try {
-            const data = await getScheduleStatus(month);
+            const data = await getScheduleStatus(month, cafeId.value);
             console.log(data)
             scheduleStatus.value = data;
         } catch (error) {
@@ -61,10 +62,11 @@ export const useScheduleStore = defineStore('schedule', () => {
         }
     }
 
-    //5. Обновление расписания по текущему пользователю
-    async function updateMySchedule(month = currentMonth.value, daysData) {
+    //5. Обновление расписания по текущему пользователю (поддержка shifts)
+    async function updateMySchedule(month = currentMonth.value, shiftsData) {
         try {
-            const data = await updateMyScheduleAPI(month, { days: daysData });
+            // Отправляем shifts (массив смен с startTime, endTime, status)
+            const data = await updateMyScheduleAPI(month, { shifts: shiftsData }, cafeId.value);
             mySchedule.value = data;
         } catch (error) {
             console.error('Error in updateMySchedule:', error);
@@ -76,7 +78,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     async function changeApproveStatus(month = currentMonth.value, approve) {
         try {
             console.log("changeApproveStatus", month, approve)
-            const data = await changeScheduleStatus({ month, approved: approve });
+            const data = await changeScheduleStatus({ month, approved: approve }, cafeId.value);
             mySchedule.value = data;
             allSchedule.value = data;
         } catch (error) {
@@ -88,7 +90,13 @@ export const useScheduleStore = defineStore('schedule', () => {
     //7. Обновление расписания для всех сотрудников
     async function updateAllScheduleData(month = currentMonth.value, schedulesData) {
         try {
-            const data = await updateAllSchedule(month, { userSchedules: schedulesData });
+            // Отправляем FullScheduleDto: { cafeId, approved, userSchedules }
+            const payload = {
+                cafeId: cafeId.value,
+                approved: allSchedule.value?.approved || false,
+                userSchedules: schedulesData
+            };
+            const data = await updateAllSchedule(month, payload, cafeId.value);
             allSchedule.value = data;
         } catch (error) {
             console.error('Error in updateAllScheduleData:', error);
@@ -98,6 +106,7 @@ export const useScheduleStore = defineStore('schedule', () => {
 
     return {
         currentMonth,
+        cafeId,
         fetchMySchedule,
         fetchAllSchedule,
         mySchedule,
@@ -113,3 +122,4 @@ export const useScheduleStore = defineStore('schedule', () => {
         isStatusAllSchedule,
     }
 })
+

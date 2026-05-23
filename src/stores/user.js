@@ -21,6 +21,14 @@ export const useUserStore = defineStore('user', () => {
    */
   async function init() {
     const token = localStorage.getItem('token')
+    const savedUser = localStorage.getItem('currentUser')
+    
+    // Если есть сохранённый пользователь — восстанавливаем его
+    if (savedUser) {
+      currentUser.value = JSON.parse(savedUser)
+      return currentUser.value
+    }
+    
     if (!token) return null
 
     try {
@@ -45,6 +53,10 @@ export const useUserStore = defineStore('user', () => {
       // ✅ Используем ваш метод login
       const userData = await authAPI.login(credentials)
       currentUser.value = userData
+      
+      // Сохраняем currentUser в localStorage для восстановления после перезагрузки
+      localStorage.setItem('currentUser', JSON.stringify(userData))
+      
       return userData
     } catch (error) {
       console.error('E -> stores/user.js -> Ошибка логина:', error)

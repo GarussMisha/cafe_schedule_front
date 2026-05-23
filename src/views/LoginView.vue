@@ -275,7 +275,8 @@ async function handleLogin() {
       username: username.value,
       password: password.value
     })
-    router.push('/')
+    // Перенаправляем на /schedule после успешного логина
+    router.push('/schedule')
   } catch (err) {
     console.error('Ошибка логина:', err)
     error.value = 'Неверный логин или пароль'
