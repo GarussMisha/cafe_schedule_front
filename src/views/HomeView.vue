@@ -1,52 +1,63 @@
 <template>
   <main class="home">
-    <h1 class="page-title">Главная</h1>
-    <section class="home-card">
-      <p class="welcome">
+    <section class="welcome-card">
+      <div class="card-header">
+        <i class="pi pi-home" style="font-size: 2.5rem; color: #ff9800;"></i>
+        <h1 class="card-title">Главная</h1>
+      </div>
+      
+      <p class="welcome-text">
         Добро пожаловать в систему управления расписанием сотрудников!
       </p>
 
-      <p class="desc">
+      <p class="card-desc">
         Здесь будет отображаться статистика и персональные данные пользователя
       </p>
 
-
       <div class="btn-container" v-if="!userStore.isAdmin">
-        <button class="button btn-schedule" @click="goSchedule">
-          Таблица расписания
+        <button class="action-btn" @click="goSchedule" type="button">
+          <i class="pi pi-calendar"></i> Таблица расписания
         </button>
-
-        <button class="button btn-profile" @click="goProfile">
-          Профиль
+        <button class="action-btn" @click="goProfile" type="button">
+          <i class="pi pi-user"></i> Профиль
         </button>
       </div>
     </section>
 
     <div class="feed-container">
-      <section class="news-feed">
-        <h2>Новости предприятия</h2>
+      <section class="feed-card news-feed">
+        <h2 class="feed-title">
+          <i class="pi pi-bell" style="color: #ff9800;"></i>
+          Новости предприятия
+        </h2>
         <div class="news-item" v-for="news in newsList" :key="news.id">
-          <h3>{{ news.title }}</h3>
-          <p>{{ news.date }}</p>
-          <p>{{ news.content }}</p>
+          <h3 class="news-title">{{ news.title }}</h3>
+          <p class="news-date">{{ news.date }}</p>
+          <p class="news-content">{{ news.content }}</p>
         </div>
       </section>
 
-      <section class="notifications-feed">
-        <h2>Уведомления</h2>
+      <section class="feed-card notifications-feed">
+        <h2 class="feed-title">
+          <i class="pi pi-exclamation-circle" style="color: #ff9800;"></i>
+          Уведомления
+        </h2>
         <div class="notification-item">
-          <p>Здесь будут отображаться уведомления.</p>
+          <p class="notification-hint">Здесь будут отображаться уведомления.</p>
           <div class="news-item" v-for="notification in notificationsList" :key="notification.id">
-            <h3>{{ notification.title }}</h3>
-            <p>{{ notification.date }}</p>
-            <p>{{ notification.content }}</p>
+            <h3 class="news-title">{{ notification.title }}</h3>
+            <p class="news-date">{{ notification.date }}</p>
+            <p class="news-content">{{ notification.content }}</p>
           </div>
         </div>
       </section>
     </div>
 
-    <section class="instructions">
-      <h2>Инструкция по пользованию</h2>
+    <section class="instructions-card">
+      <h2 class="instructions-title">
+        <i class="pi pi-info-circle" style="color: #ff9800;"></i>
+        Инструкция по пользованию
+      </h2>
       <details>
         <summary>Как пользоваться системой</summary>
         <ol>
@@ -88,77 +99,131 @@ function goProfile(){
 </script>
 
 <style scoped>
-/* Общая обертка страницы */
 .home {
-  padding-top: 80px;     /* отступ от Header */
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
-  gap: 20px;
+  gap: 24px;
+  padding-top: 32px;
 }
 
-/* Контейнер для новостей и уведомлений */
+.welcome-card {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  background: #ffffff;
+  backdrop-filter: blur(30px);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  padding: 36px;
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.card-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0.5rem 0 0 0;
+}
+
+.welcome-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.card-desc {
+  color: #666666;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
 .feed-container {
   display: flex;
   width: 100%;
   max-width: 1200px;
-  gap: 20px;
+  gap: 24px;
   justify-content: space-between;
 }
 
-.home-card,
-.instructions {
-  width: 100%;
-  max-width: 1120px;               /* ← единое значение */
-  margin-left: auto;
-  margin-right: auto;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(30px);
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-}
-
-.news-feed,
-.notifications-feed {
+.feed-card {
   flex: 1;
   min-width: 300px;
   min-height: 200px;
-  background: rgba(255, 255, 255, 0.5);
+  background: #ffffff;
   backdrop-filter: blur(30px);
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-}
-
-/* Уточняем padding отдельно, если он разный */
-.home-card {
-  padding: 30px 36px;
-}
-
-.news-feed,
-.notifications-feed,
-.instructions {
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
   padding: 36px;
 }
 
-.instructions summary {
-  color: #2d6cfa;
-}
-/* Заголовок страницы */
-.page-title {
-  position: absolute;
-  top: 80px;
-  left: 40px;
-  font-size: 28px;
+.feed-title {
+  font-size: 18px;
   font-weight: 700;
+  margin-bottom: 15px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* Заголовки блоков новостей и уведомлений */
-.news-feed h2,
-.notifications-feed h2 {
+.instructions-card {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  background: #ffffff;
+  backdrop-filter: blur(30px);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  padding: 36px;
+}
+
+.instructions-title {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 15px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.instructions summary {
+  color: #ff9800;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 152, 0, 0.05);
+  margin-bottom: 10px;
+}
+
+.instructions summary:hover {
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.instructions ol {
+  padding-left: 20px;
+  margin-top: 10px;
+}
+
+.instructions li {
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.notification-hint {
+  margin: 5px 0;
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
 }
 
 .notification-item {
@@ -173,123 +238,76 @@ function goProfile(){
   border-bottom: 1px solid #eee;
 }
 
-.news-item h3 {
+.news-title {
   margin-bottom: 5px;
   font-size: 14px;
-  color: #4c88ff;
+  color: #ff9800;
+  font-weight: 600;
 }
 
-.notification-item p {
+.news-date {
+  margin: 5px 0;
+  font-size: 12px;
+  color: #999;
+}
+
+.news-content {
   margin: 5px 0;
   font-size: 12px;
   color: #555;
 }
 
-.news-item p {
-  margin: 5px 0;
-  font-size: 12px;
-  color: #555;
-}
-
-.instructions summary {
-  font-weight: 600;
-  cursor: pointer;
-  padding: 10px;
-
-  border-radius: 5px;
-}
-
-.instructions ol {
-  padding-left: 20px;
-  margin-top: 10px;
-}
-
-.instructions li {
-  margin-bottom: 8px;
-  color: #555;
-}
-
-
-
-/* Текст */
-.welcome {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.desc {
-  color: #777;
-  margin-bottom: 24px;
-}
-
-/* Контейнер кнопок */
 .btn-container {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* Базовый стиль кнопок */
-.button {
-  padding: 10px 18px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 15px;
+.action-btn {
   min-width: 180px;
-  transition: .25s ease;
+  border-radius: 20px !important;
+  font-weight: 400 !important;
+  font-size: 0.95rem !important;
+  padding: 12px 28px !important;
+  background: transparent !important;
+  color: #ff9800 !important;
+  border: 1.5px solid #ff9800 !important;
+  transition: all 0.3s ease !important;
+  letter-spacing: 0.02em;
 }
 
-/* Вариант кнопки — расписание */
-.btn-schedule {
-  background: #4c88ff;
-  color: white;
-}
-
-.btn-schedule:hover {
-  background: #2d6cfa;
+.action-btn:hover {
+  background: rgba(255, 152, 0, 0.1) !important;
+  color: #e68900 !important;
+  border-color: #e68900 !important;
   transform: translateY(-1px);
 }
 
-/* Вариант кнопки — профиль */
-.btn-profile {
-  background: #18cc00;
-  color: white;
-}
-
-.btn-profile:hover {
-  background: #118f00d7;
-  transform: translateY(-1px);
-}
-
-/* Немного адаптива */
 @media (max-width: 800px) {
   .feed-container {
     flex-direction: column;
   }
 
-  .news-feed, .notifications-feed {
+  .feed-card {
     width: 100%;
   }
 }
 
 @media (max-width: 600px) {
-  .home-card {
+  .welcome-card {
     padding: 22px;
   }
 
-  .news-feed, .notifications-feed, .instructions {
+  .feed-card, .instructions-card {
     padding: 15px;
   }
 
-  .page-title {
-    left: 16px;
-    font-size: 22px;
+  .card-title {
+    font-size: 1.5rem;
   }
 
-  .button {
+  .action-btn {
     width: 100%;
   }
 }

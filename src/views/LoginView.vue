@@ -1,44 +1,61 @@
 <template>
-  <div class="login-container">
-    <!-- Контейнер для падающих батонов -->
+  <div class="login-page">
     <canvas ref="canvas" class="falling-batons-canvas"></canvas>
     
     <div class="login-card">
-      <h1 class="title">Вход в систему</h1>
-      <p class="subtitle">Система составления и учета рабочего времени</p>
+      <div class="card-header">
+        <div class="logo-container">
+          <i class="pi pi-user" style="font-size: 3rem; color: #ff9800;"></i>
+        </div>
+        <h1 class="title">Вход в систему</h1>
+        <p class="subtitle">Система составления и учета рабочего времени</p>
+      </div>
       
       <form @submit.prevent="handleLogin" class="login-form">
-        <div class="form-group">
-          <label for="username">Логин:</label>
-          <input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="Введите логин"
-            required
-            class="form-input"
-          />
+        <div class="form-field">
+          <p-float-label>
+            <input
+              id="username"
+              v-model="username"
+              type="text"
+              required
+              class="input-field"
+              :class="{ 'input-error': errors.username }"
+            />
+            <label for="username">Логин</label>
+          </p-float-label>
+          <p-message v-if="errors.username" severity="error" size="small">{{ errors.username }}</p-message>
         </div>
         
-        <div class="form-group">
-          <label for="password">Пароль:</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Введите пароль"
-            required
-            class="form-input"
-          />
+        <div class="form-field">
+          <p-float-label>
+            <input
+              id="password"
+              v-model="password"
+              type="password"
+              required
+              class="input-field"
+              :class="{ 'input-error': errors.password }"
+            />
+            <label for="password">Пароль</label>
+          </p-float-label>
+          <p-message v-if="errors.password" severity="error" size="small">{{ errors.password }}</p-message>
         </div>
         
-        <button type="submit" :disabled="userStore.isLoading" class="login-btn">
+        <button
+          type="submit"
+          :disabled="userStore.isLoading"
+          class="login-btn"
+        >
           {{ userStore.isLoading ? 'Вход...' : 'Войти' }}
         </button>
-        <a class="subtitle" href="#" onclick="alert('Напишите на почту админа admin@example.com')">Забыли пароль?</a> 
+        
+        <a class="forgot-link" href="#" onclick="alert('Напишите на почту админа admin@example.com')">
+          Забыли пароль?
+        </a>
       </form>
       
-      <p v-if="error" class="error-message">{{ error }}</p>
+      <p-message v-if="error" severity="error" style="margin-top: 1rem;" size="small">{{ error }}</p-message>
     </div>
   </div>
 </template>
@@ -54,90 +71,61 @@ const userStore = useUserStore()
 const username = ref('')
 const password = ref('')
 const error = ref('')
+const errors = ref({})
 const canvas = ref(null)
 
 let animationId = null
 let batons = []
 let batonImages = []
 
-// Настройки размера батонов
-const BATON_MIN_SIZE = 60 // Минимальная ширина батона в пикселях
-const BATON_MAX_SIZE = 160 // Максимальная ширина батона в пикселях
+const BATON_MIN_SIZE = 60
+const BATON_MAX_SIZE = 160
 
 class Baton {
   constructor(canvasWidth, canvasHeight, images) {
-    // Позиция
     this.x = Math.random() * canvasWidth
-    this.y = -50 - Math.random() * 100 // Начинаем выше экрана
-    
-    // Физика
-    this.speedY = Math.random() * 2 + 1 // Скорость падения: 2-4 px/frame
-    this.rotation = Math.random() * Math.PI * 2 // Начальный угол
-    this.rotationSpeed = (Math.random() - 0.2) * 0.1 // Скорость вращения
-    
-    // Размер с сохранением пропорций
+    this.y = -50 - Math.random() * 100
+    this.speedY = Math.random() * 2 + 1
+    this.rotation = Math.random() * Math.PI * 2
+    this.rotationSpeed = (Math.random() - 0.2) * 0.1
     this.baseSize = Math.random() * (BATON_MAX_SIZE - BATON_MIN_SIZE) + BATON_MIN_SIZE
-    
-    // Выбираем случайное изображение
     this.image = images[Math.floor(Math.random() * images.length)]
-    
-    // Вычисляем размеры с учётом пропорций изображения
     if (this.image) {
       const aspectRatio = this.image.height / this.image.width
       this.width = this.baseSize
       this.height = this.baseSize * aspectRatio
     } else {
-      // Если изображения нет, делаем квадрат
       this.width = this.baseSize
       this.height = this.baseSize
     }
-    
-    // Прозрачность
     this.opacity = 0
-    this.maxOpacity = Math.random() * 0.3 + 0.5 // 0.5-0.8
+    this.maxOpacity = Math.random() * 0.3 + 0.5
     this.fadeIn = true
-    
-    // Максимальная высота
     this.maxHeight = canvasHeight
   }
   
   update() {
-    // Падение
     this.y += this.speedY
-    
-    // Вращение
     this.rotation += this.rotationSpeed
-    
-    // Плавное появление и исчезновение
     if (this.fadeIn && this.opacity < this.maxOpacity) {
       this.opacity += 0.02
       if (this.opacity >= this.maxOpacity) {
         this.fadeIn = false
       }
     }
-    
-    // Начинаем исчезать когда приближаемся к низу
     if (this.y > this.maxHeight - 200) {
       this.opacity -= 0.01
     }
-    
-    // Проверяем, вышел ли батон за экран
     return this.y < this.maxHeight + 100 && this.opacity > 0
   }
   
   draw(ctx) {
     if (!this.image) return
-    
     ctx.save()
     ctx.globalAlpha = this.opacity
-    
-    // Перемещаемся к центру батона
     ctx.translate(this.x, this.y)
     ctx.rotate(this.rotation)
-    
-    // Рисуем батон с правильными пропорциями (центрируем)
     ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height)
-    
     ctx.restore()
   }
 }
@@ -148,7 +136,6 @@ onMounted(async () => {
     router.push('/')
     return
   }
-  
   initCanvas()
   loadBatonImage()
 })
@@ -162,16 +149,12 @@ onUnmounted(() => {
 function initCanvas() {
   const canvasEl = canvas.value
   if (!canvasEl) return
-  
-  // Устанавливаем размер canvas
   const resize = () => {
     canvasEl.width = window.innerWidth
     canvasEl.height = window.innerHeight
   }
-  
   resize()
   window.addEventListener('resize', resize)
-  
   onUnmounted(() => {
     window.removeEventListener('resize', resize)
   })
@@ -183,27 +166,21 @@ function loadBatonImage() {
     '/src/assets/Cheesecake.png',
     '/src/assets/Croissant.png'
   ]
-  
   let loadedImages = 0
   const totalImages = imagePaths.length
-  
   imagePaths.forEach(path => {
     const img = new Image()
     img.src = path
-    
     img.onload = () => {
       batonImages.push(img)
       loadedImages++
-      
       if (loadedImages === totalImages) {
         startAnimation()
       }
     }
-    
     img.onerror = () => {
       console.warn(`Не удалось загрузить изображение ${path}`)
       loadedImages++
-      
       if (loadedImages === totalImages && batonImages.length === 0) {
         console.warn('Не удалось загрузить ни одно изображение, используем запасной вариант')
         createFallbackBaton()
@@ -214,46 +191,33 @@ function loadBatonImage() {
 }
 
 function createFallbackBaton() {
-  // Создаём простой батон на canvas как запасной вариант
   const fallbackCanvas = document.createElement('canvas')
   fallbackCanvas.width = 60
   fallbackCanvas.height = 60
   const ctx = fallbackCanvas.getContext('2d')
-  
-  // Рисуем простой батон (овал)
   ctx.fillStyle = '#d4a574'
   ctx.beginPath()
   ctx.ellipse(30, 30, 25, 8, 0, 0, Math.PI * 2)
   ctx.fill()
-  
-  // Добавляем тени для объёма
   ctx.fillStyle = '#c49563'
   ctx.beginPath()
   ctx.ellipse(30, 32, 20, 6, 0, 0, Math.PI * 2)
   ctx.fill()
-  
   batonImages.push(fallbackCanvas)
 }
 
 function startAnimation() {
   const canvasEl = canvas.value
   if (!canvasEl) return
-  
   const ctx = canvasEl.getContext('2d')
   let lastSpawnTime = 0
-  const spawnInterval = 500 // Создаём новый батон каждые 500ms
-  
+  const spawnInterval = 500
   function animate(currentTime) {
-    // Очищаем canvas
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height)
-    
-    // Создаём новые батоны
     if (currentTime - lastSpawnTime > spawnInterval) {
       batons.push(new Baton(canvasEl.width, canvasEl.height, batonImages))
       lastSpawnTime = currentTime
     }
-    
-    // Обновляем и рисуем батоны
     batons = batons.filter(baton => {
       const isAlive = baton.update()
       if (isAlive) {
@@ -261,22 +225,30 @@ function startAnimation() {
       }
       return isAlive
     })
-    
     animationId = requestAnimationFrame(animate)
   }
-  
   animationId = requestAnimationFrame(animate)
 }
 
 async function handleLogin() {
   error.value = ''
+  errors.value = {}
+  
+  if (!username.value) {
+    errors.value.username = 'Введите логин'
+    return
+  }
+  if (!password.value) {
+    errors.value.password = 'Введите пароль'
+    return
+  }
+  
   try {
     await userStore.login({
       username: username.value,
       password: password.value
     })
-    // Перенаправляем на /schedule после успешного логина
-    router.push('/schedule')
+    router.push('/')
   } catch (err) {
     console.error('Ошибка логина:', err)
     error.value = 'Неверный логин или пароль'
@@ -285,13 +257,14 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.login-container {
+.login-page {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(135deg, #fff4c4, #fff3c0, #fcefb9);
 }
 
 .falling-batons-canvas {
@@ -305,104 +278,126 @@ async function handleLogin() {
 }
 
 .login-card {
-  background: fff0ab;
-  backdrop-filter: blur(30px);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  padding: 2.5rem;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 3rem;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   z-index: 2;
   position: relative;
 }
 
-.title {
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: #000000;
+.card-header {
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.logo-container {
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
   font-size: 1rem;
-  color: #424242;
-  text-align: center;
-  margin-bottom: 2rem;
-  margin-top: 5px;
+  color: #666666;
+  margin: 0;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
 }
 
-.form-group {
-  margin-bottom: 1.25rem;
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-label {
-  font-size: 0.9rem;
-  color: #000000;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  display: block;
+.input-field {
+  width: 100% !important;
+  padding: 1rem !important;
+  border: 2px solid #e0e0e0 !important;
+  border-radius: 12px !important;
+  font-size: 1rem !important;
+  transition: all 0.3s ease !important;
+  box-sizing: border-box !important;
+  background: #ffffff !important;
+  color: #1a1a1a !important;
 }
 
-.form-input {
-  width: 100%;
-  padding: 0.85rem;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background-color: rgba(0, 0, 0, 0.25);
-  border-radius: 12px;
-  font-size: 1rem;
-  transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
-  box-sizing: border-box;
+.input-field:focus {
+  outline: none !important;
+  border-color: #ff9800 !important;
+  box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.1) !important;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: rgba(0, 0, 0, 0.6);
-  background-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.2);
+.input-field::placeholder {
+  color: #999999 !important;
+}
+
+.input-error {
+  border-color: #e74c3c !important;
+}
+
+.input-error:focus {
+  box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1) !important;
 }
 
 .login-btn {
-  padding: 0.85rem;
-  background-color: #ffe15b;
-  color: rgb(0, 0, 0);
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  font-size: 1rem;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
+  border-radius: 12px;
+  margin-top: 0.5rem;
+  background: #ff9800;
+  color: #ffffff;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
+  transition: all 0.3s ease;
 }
 
 .login-btn:hover:not(:disabled) {
-  background-color: #ffda36;
-  transform: scale(1.02);
+  background: #e68900;
+  transform: translateY(-1px);
 }
 
 .login-btn:disabled {
-  background-color: #a0c4ff;
+  background: #cccccc;
   cursor: not-allowed;
-  transform: none;
 }
 
-.error-message {
-  color: #e74c3c;
+.forgot-link {
   text-align: center;
-  margin-top: 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  animation: shake 0.5s;
+  color: #ff9800;
+  font-size: 0.95rem;
+  text-decoration: none;
+  margin-top: 0.5rem;
+  transition: color 0.2s;
 }
 
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-10px); }
-  75% { transform: translateX(10px); }
+.forgot-link:hover {
+  color: #e68900;
+}
+
+@media (max-width: 600px) {
+  .login-card {
+    padding: 2rem;
+    margin: 1rem;
+    border-radius: 20px;
+  }
+  
+  .title {
+    font-size: 1.75rem;
+  }
 }
 </style>

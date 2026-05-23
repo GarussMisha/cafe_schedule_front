@@ -1,10 +1,10 @@
 <template>
-  <Headbar v-if="showHeadbar" />
+  <Headbar v-if="!isLoginPage" :key="route.path" />
   <RouterView />
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import Headbar from '@/components/Headbar.vue'
@@ -12,13 +12,10 @@ import Headbar from '@/components/Headbar.vue'
 const userStore = useUserStore()
 const route = useRoute()
 
+const isLoginPage = computed(() => route.path === '/login')
+
 onMounted(() => {
   userStore.init()
-})
-
-const showHeadbar = computed(() => {
-  // Более безопасная проверка - показываем если не false
-  return route.meta.showHeadbar ?? true
 })
 </script>
 
@@ -26,14 +23,25 @@ const showHeadbar = computed(() => {
 
 body {
   background: linear-gradient(135deg, #fff4c4, #fff3c0, #fcefb9);
-  background-attachment: fixed;     /* чтобы градиент не двигался при скролле */
+  background-attachment: fixed;
   margin: 0;
   padding: 0;
   height: 100%;
-  /*overflow-x: hidden; /* предотвращаем горизонтальную прокрутку */
   font-family: 'Roboto', sans-serif;
-  font-weight: 400; 
+  font-weight: 400;
+  overflow-x: hidden;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
 
 </style>

@@ -3,7 +3,6 @@
     <div class="profile-container">
       <h1>Профиль пользователя</h1>
       
-      <!-- Информация о пользователе -->
       <div class="user-info" v-if="userStore.currentUser">
         <div class="user-info-content">
           <div class="info-item-name">
@@ -31,11 +30,14 @@
         </div>
       </div>
 
-      <!-- Управление месяцем -->
       <div class="month-controls-compact">
-        <button @click="previousMonth" class="month-btn">‹</button>
+        <button @click="previousMonth" class="month-btn" type="button">
+          <i class="pi pi-angle-left"></i>
+        </button>
         <h2 class="month-title">{{ formatMonth(currentMonth) }}</h2>
-        <button @click="nextMonth" class="month-btn">›</button>
+        <button @click="nextMonth" class="month-btn" type="button">
+          <i class="pi pi-angle-right"></i>
+        </button>
       </div>
 
       <div class="approve-section">
@@ -43,29 +45,27 @@
         
         <div class="action-buttons" v-if="!scheduleStore.mySchedule?.approved || userStore.isManager">
           <template v-if="!isEditingSchedule">
-            <button @click="startEditing" class="edit-btn">
+            <button @click="startEditing" class="edit-btn" type="button">
               ✏️ Редактировать расписание
             </button>
           </template>
           <template v-else>
-            <button @click="saveSchedule" class="save-btn">
+            <button @click="saveSchedule" class="save-btn" type="button">
               ✓ Сохранить
             </button>
-            <button @click="cancelEditing" class="cancel-btn">
+            <button @click="cancelEditing" class="cancel-btn" type="button">
               ✕ Отменить
             </button>
           </template>
         </div>
       </div>
 
-      <!-- Таблица расписания со смёнами -->
       <div class="schedule-title">
         <strong>Расписание на {{ formatMonth(currentMonth) }}</strong>
       </div>
 
       <div class="fullscreen-schedule" v-if="scheduleStore.mySchedule?.userSchedules?.[0]?.shifts">
         <div class="schedule-table">
-          <!-- Заголовок таблицы -->
           <div class="schedule-header">
             <div class="header-date">Дата</div>
             <div class="header-day">День</div>
@@ -73,7 +73,6 @@
             <div class="header-status">Статус</div>
           </div>
 
-          <!-- Строки со сменами -->
           <div v-for="shift in scheduleStore.mySchedule.userSchedules[0].shifts"
                :key="shift.date"
                :class="{
@@ -82,13 +81,9 @@
                  'today': isToday(shift.date)
                }">
             
-            <!-- Дата -->
             <div class="cell-date">{{ new Date(shift.date).getDate() }}</div>
-
-            <!-- День недели -->
             <div class="cell-day">{{ getDayOfWeekShort(shift.date) }}</div>
 
-            <!-- Время смены -->
             <div class="cell-time">
               <template v-if="!isEditingSchedule">
                 <span v-if="getEditedShift(shift.date).startTime" class="time-display">
@@ -97,14 +92,14 @@
                 <span v-else class="empty-time">—</span>
               </template>
               <template v-else>
-                <input 
-                  type="time" 
+                <input
+                  type="time"
                   :value="getEditedShift(shift.date).startTime"
                   @input="updateShiftTime(shift.date, 'startTime', $event.target.value)"
                   class="time-input"
                 />
                 <span class="time-sep">—</span>
-                <input 
+                <input
                   type="time"
                   :value="getEditedShift(shift.date).endTime"
                   @input="updateShiftTime(shift.date, 'endTime', $event.target.value)"
@@ -113,7 +108,6 @@
               </template>
             </div>
 
-            <!-- Статус смены -->
             <div class="cell-status">
               <div 
                 v-if="!isEditingSchedule"
@@ -126,22 +120,22 @@
                 v-else
                 class="status-selector"
                 :style="{ backgroundColor: getStatusColor(getEditedShift(shift.date).status) }"
-                @click="openStatusDropdown(shift.date, $event)">
+                @click="openStatusDropdown(shift.date, $event)"
+                type="button"
+              >
                 {{ getStatusShortName(getEditedShift(shift.date).status) }}
-                <span v-if="isShiftEdited(shift.date)" class="edited-marker">*</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Dropdown с выбором статуса -->
         <div v-if="isEditingSchedule && selectedShiftDate"
-             class="status-dropdown-portal"
-             :style="{
-               top: dropdownPosition.top + 'px',
-               left: dropdownPosition.left + 'px'
-             }"
-             @click.stop>
+              class="status-dropdown-portal"
+              :style="{
+                top: dropdownPosition.top + 'px',
+                left: dropdownPosition.left + 'px'
+              }"
+              @click.stop>
           <div v-for="status in scheduleStatusesFromStore"
                :key="status.id"
                class="dropdown-item"
@@ -152,7 +146,6 @@
         </div>
       </div>
 
-      <!-- Легенда статусов -->
       <div class="status-legend" v-if="scheduleStatusesFromStore">
         <div class="legend-item" v-for="status in scheduleStatusesFromStore" :key="status.id">
           <span class="legend-color" :style="{ backgroundColor: status.color }"></span>
@@ -160,7 +153,6 @@
         </div>
       </div>
 
-      <!-- Статистика -->
       <div class="schedule-statistics" v-if="scheduleStatistics">
         <h3>Статистика за месяц</h3>
         <div class="statistics-grid">
@@ -419,21 +411,25 @@ onBeforeUnmount(() => {
 }
 
 .month-btn {
-  background-color: #ffffff;
-  color: rgb(0, 0, 0);
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+  background: transparent;
+  color: #1a1a1a;
+  border: 1.5px solid #e0e0e0;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
   cursor: pointer;
-  font-size: 18px;
-  transition: all 0.2s;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .month-btn:hover {
-  background-color: #ececec;
+  border-color: #ff9800;
+  color: #ff9800;
+  background: rgba(255, 152, 0, 0.05);
   transform: translateY(-1px);
-  box-shadow: 0 0 12px #d8d8d8d0;
 }
 
 .approve-section {
@@ -452,36 +448,50 @@ onBeforeUnmount(() => {
 }
 
 .edit-btn, .save-btn, .cancel-btn {
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: none;
+  padding: 8px 20px;
+  border: 1.5px solid transparent;
+  border-radius: 20px;
   cursor: pointer;
-  font-weight: 600;
-  transition: all 0.25s;
+  font-weight: 400;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  letter-spacing: 0.02em;
 }
 
 .edit-btn {
-  background: #ffb547;
+  background: transparent;
+  color: #ff9800;
+  border-color: #ff9800;
 }
 
 .edit-btn:hover {
-  background: #e69a2e;
+  background: rgba(255, 152, 0, 0.1);
+  color: #e68900;
+  border-color: #e68900;
 }
 
 .save-btn {
-  background: #4CAF50;
+  background: transparent;
+  color: #4CAF50;
+  border-color: #4CAF50;
 }
 
 .save-btn:hover {
-  background: #3b9a41;
+  background: rgba(76, 175, 80, 0.1);
+  color: #3b9a41;
+  border-color: #3b9a41;
 }
 
 .cancel-btn {
-  background: #ff4444;
+  background: transparent;
+  color: #ff4444;
+  border-color: #ff4444;
 }
 
 .cancel-btn:hover {
-  background: #ff3c3c;
+  background: rgba(255, 68, 68, 0.1);
+  color: #ff3c3c;
+  border-color: #ff3c3c;
 }
 
 .schedule-title {
@@ -512,7 +522,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 60px 80px 150px 100px;
   gap: 12px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #ff9800 0%, #e68900 100%);
   color: white;
   font-weight: 700;
   font-size: 13px;
@@ -540,12 +550,12 @@ onBeforeUnmount(() => {
 }
 
 .schedule-row.today {
-  background: rgba(76, 136, 255, 0.12);
-  border-left: 3px solid #4c88ff;
+  background: rgba(255, 152, 0, 0.12);
+  border-left: 3px solid #ff9800;
 }
 
 .schedule-row:hover {
-  background: rgba(76, 136, 255, 0.08);
+  background: rgba(255, 152, 0, 0.08);
 }
 
 .cell-date {
@@ -589,8 +599,8 @@ onBeforeUnmount(() => {
 
 .time-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+  border-color: #ff9800;
+  box-shadow: 0 0 4px rgba(255, 152, 0, 0.3);
 }
 
 .time-sep {
@@ -678,8 +688,8 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-item:hover {
-  background: rgba(76, 136, 255, 0.1);
-  color: #4c88ff;
+  background: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
 }
 
 .status-color {
@@ -749,18 +759,18 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   text-align: center;
   transition: transform 0.25s, box-shadow 0.25s;
-  border-top: 2px solid #667eea;
+  border-top: 2px solid #ff9800;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 20px rgba(255, 152, 0, 0.15);
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #667eea;
+  color: #ff9800;
   margin-bottom: 8px;
 }
 

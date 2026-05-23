@@ -3,7 +3,6 @@
     <h1>Панель администратора</h1>
     
     <div v-if="isUserAdmin" class="admin-panel">
-      <!-- Сводка (статистика) -->
       <section class="summary-section">
         <h2>Сводка</h2>
         <div class="summary-cards">
@@ -14,14 +13,12 @@
         </div>
       </section>
 
-      <!-- Кнопка создания пользователя -->
       <section class="actions-section">
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button class="btn btn-primary" @click="showCreateModal = true" type="button">
           ➕ Создать пользователя
         </button>
       </section>
 
-      <!-- Список всех пользователей -->
       <section v-if="allUsers.length > 0" class="users-section">
         <h2>Список действующих сотрудников</h2>
         <div class="users-list">
@@ -29,14 +26,22 @@
             <div class="user-info">
               <div class="user-username">{{ user.username }}</div>
               <div class="user-email">{{ user.email }}</div>
-              <div class="user-roles">{{ user.roles?.join(', ') }}</div>
+              <div class="user-roles">
+                <span v-for="role in user.roles" :key="role" class="role-tag">
+                  {{ role }}
+                </span>
+              </div>
             </div>
             <div class="user-actions">
-              <button class="btn btn-edit" @click="openEditModal(user)">Редактировать</button>
+              <button class="btn btn-edit" @click="openEditModal(user)" type="button">
+                <i class="pi pi-pencil"></i> Редактировать
+              </button>
               <button class="btn btn-delete" 
-                      @click="deleteUser(user.id)" 
-                      :disabled="user.id === userStore.currentUser?.id">
-                Удалить
+                        @click="deleteUser(user.id)" 
+                        :disabled="user.id === userStore.currentUser?.id"
+                        type="button"
+                      >
+                <i class="pi pi-trash"></i> Удалить
               </button>
             </div>
           </div>
@@ -49,13 +54,13 @@
     </div>
 
     <CreateUserModal :is-open="showCreateModal" 
-                     @close="showCreateModal = false"
-                     @success="handleUserUpdated" />
+                      @close="showCreateModal = false"
+                      @success="handleUserUpdated" />
 
     <EditUserModal :is-open="showEditModal"
-                   :user="selectedUser"
-                   @close="showEditModal = false"
-                   @success="handleUserUpdated" />
+                    :user="selectedUser"
+                    @close="showEditModal = false"
+                    @success="handleUserUpdated" />
   </main>
 </template>
 
@@ -68,7 +73,6 @@ import EditUserModal from '@/components/modal/adminPanel/EditUserModal.vue';
 const userStore = useUserStore();
 const allUsers = ref([])
 
-// Модальные окна
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const selectedUser = ref(null)
@@ -123,7 +127,6 @@ async function deleteUser(userId) {
   font-size: 2.5rem;
 }
 
-/* Сводка (статистика) */
 .summary-section {
   margin-bottom: 2rem;
 }
@@ -162,7 +165,6 @@ async function deleteUser(userId) {
   font-weight: bold;
 }
 
-/* Секция действий */
 .actions-section {
   margin-bottom: 2rem;
   display: flex;
@@ -170,7 +172,6 @@ async function deleteUser(userId) {
   gap: 1rem;
 }
 
-/* Секция пользователей */
 .users-section {
   padding: 2rem;
   background: rgba(255, 255, 255, 0.5);
@@ -229,6 +230,9 @@ async function deleteUser(userId) {
   font-size: 0.85rem;
   color: #999;
   font-style: italic;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .user-actions {
@@ -237,7 +241,6 @@ async function deleteUser(userId) {
   margin-left: 1rem;
 }
 
-/* Стили кнопок */
 .btn {
   padding: 0.75rem 1.25rem;
   border: none;
@@ -257,7 +260,6 @@ async function deleteUser(userId) {
   cursor: not-allowed;
 }
 
-/* Кнопка создания (первичная) */
 .btn-primary {
   background: #ffb547;
 }
@@ -271,7 +273,6 @@ async function deleteUser(userId) {
   transform: translateY(0);
 }
 
-/* Кнопка редактирования */
 .btn-edit {
   background: #4CAF50;
   color: white;
@@ -287,7 +288,6 @@ async function deleteUser(userId) {
   transform: translateY(0);
 }
 
-/* Кнопка удаления */
 .btn-delete {
   background: #f44336;
   color: white;
@@ -303,7 +303,6 @@ async function deleteUser(userId) {
   transform: translateY(0);
 }
 
-/* Пустое состояние */
 .empty-state {
   text-align: center;
   padding: 2rem;
@@ -311,7 +310,6 @@ async function deleteUser(userId) {
   font-size: 1rem;
 }
 
-/* Адаптивность */
 @media (max-width: 768px) {
   .admin-panel-container {
     padding: 1rem;
@@ -349,7 +347,6 @@ async function deleteUser(userId) {
   }
 }
 
-/* Дополнительно: для очень маленьких экранов */
 @media (max-width: 480px) {
   .user-actions {
     flex-direction: column;
