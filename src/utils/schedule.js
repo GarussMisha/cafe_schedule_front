@@ -46,3 +46,9 @@ export function getNextMonth(currentMonthString) {
   date.setMonth(date.getMonth() + 1)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
 }
+
+// Форматирование времени — убирает секунды
+export function formatTime(timeString) {
+  if (!timeString) return ''
+  return timeString.slice(0, 5)
+}
