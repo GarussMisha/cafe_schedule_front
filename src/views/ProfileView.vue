@@ -187,6 +187,19 @@
             <div class="stat-label">{{ getStatisticLabel(statusName) }}</div>
           </div>
         </div>
+        <div v-if="hourStatistics" class="hour-statistics">
+          <h4>Рабочие часы</h4>
+          <div class="statistics-grid">
+            <div class="stat-card">
+              <div class="stat-value">{{ hourStatistics.worked }}</div>
+              <div class="stat-label">Отработано часов</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ hourStatistics.planned }}</div>
+              <div class="stat-label">Запланировано часов</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -244,6 +257,40 @@ const scheduleStatistics = computed(() => {
   })
   
   return stats
+})
+
+const hourStatistics = computed(() => {
+  const user = scheduleStore.mySchedule?.userSchedules?.[0]
+  if (!user?.shifts) return null
+
+  const shifts = user.shifts
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  let plannedHours = 0
+  let workedHours = 0
+
+  shifts.forEach(shift => {
+    const editedShift = getEditedShift(shift.date)
+    const status = scheduleStatusesFromStore.value?.find(s => s.id === editedShift.status)
+    if (!status) return
+
+    const name = status.name_rus.toLowerCase()
+    if (name.includes('рабоч') || name.includes('смена')) {
+      const hours = calculateHours(editedShift.startTime, editedShift.endTime)
+      plannedHours += hours
+
+      const shiftDate = new Date(shift.date + 'T00:00:00')
+      if (shiftDate <= today) {
+        workedHours += hours
+      }
+    }
+  })
+
+  return {
+    worked: Math.ceil(workedHours),
+    planned: Math.ceil(plannedHours)
+  }
 })
 
 function getDaysInMonth() {
@@ -516,6 +563,15 @@ function getStatisticLabel(name) {
   return labels[name] || name
 }
 
+function calculateHours(startTime, endTime) {
+  if (!startTime || !endTime) return 0
+  const [startH, startM] = startTime.split(':').map(Number)
+  const [endH, endM] = endTime.split(':').map(Number)
+  const start = startH + startM / 60
+  const end = endH + endM / 60
+  return Math.max(0, end - start)
+}
+
 async function loadSchedule() {
   try {
     await scheduleStore.fetchMySchedule(currentMonth.value)
@@ -558,16 +614,22 @@ onBeforeUnmount(() => {
 main {
   padding: 0;
   min-height: calc(100vh - 60px);
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: transparent;
 }
 
 .profile-container {
-  padding-top: 80px;
-  max-width: 1400px;
+  padding-top: 70px;
+  max-width: none;
   margin: 0 auto;
-  padding-left: 20px;
-  padding-right: 20px;
+  padding-left: 10px;
+  padding-right: 10px;
   padding-bottom: 20px;
+  animation: profileEnter 0.5s ease-out both;
+}
+
+@keyframes profileEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-container h1 {
@@ -1198,6 +1260,19 @@ main {
   font-size: 13px;
   color: #666;
   line-height: 1.3;
+}
+
+.hour-statistics {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.hour-statistics h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #2c3e50;
 }
 
 @media (max-width: 768px) {

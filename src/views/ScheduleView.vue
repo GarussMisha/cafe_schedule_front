@@ -127,8 +127,10 @@
               <div 
                 v-for="(user, userIdx) in scheduleStore.allSchedule.userSchedules"
                 :key="user.userId"
-                class="table-row" :style="{ gridTemplateColumns: gridTemplateCols }">
-             
+                class="table-row"
+                :class="{ 'current-user-row': user.userId === currentUserId }"
+                :style="{ gridTemplateColumns: gridTemplateCols }">
+              
                 <div class="row-header">
                   <div class="employee-info">
                     <div class="employee-name">{{ user.firstName }} {{ user.lastName }}</div>
@@ -186,7 +188,10 @@
                 v-for="(user, userIdx) in scheduleStore.allSchedule.userSchedules"
                 :key="user.userId"
                 class="timeline-row"
-                :class="{ 'timeline-row-editing': isEditingSchedule }">
+                :class="{
+                  'timeline-row-editing': isEditingSchedule,
+                  'current-user-row': user.userId === currentUserId
+                }">
                 <div class="timeline-row-header">
                   <div class="timeline-employee-info">
                     <div class="timeline-name">{{ user.firstName }} {{ user.lastName }}</div>
@@ -333,6 +338,8 @@ function getLocalDateString(date) {
 const selectedDate = ref(getLocalDateString(new Date()))
 const currentMonth = ref(scheduleStore.currentMonth)
 const currentWeekStart = ref('')
+
+const currentUserId = computed(() => userStore.currentUser?.id)
 
 const isEditingSchedule = ref(false)
 const showAddEmployeeModal = ref(false)
@@ -1000,7 +1007,7 @@ onBeforeUnmount(() => {
 main {
   padding: 0;
   min-height: calc(100vh - 60px);
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: transparent;
 }
 
 .schedule-container {
@@ -1010,6 +1017,12 @@ main {
   padding-left: 10px;
   padding-right: 10px;
   padding-bottom: 20px;
+  animation: scheduleEnter 0.5s ease-out both;
+}
+
+@keyframes scheduleEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 h1 {
@@ -1462,6 +1475,37 @@ h1 {
   z-index: 9;
   gap: 6px;
   box-sizing: border-box;
+}
+
+.current-user-row .row-header {
+  background: #e3f2fd;
+  border-left: 3px solid #1976d2;
+  box-shadow: inset 0 0 0 1px #bbdefb;
+}
+
+.current-user-row .cell {
+  box-shadow: inset 0 0 0 1px #bbdefb;
+}
+
+.current-user-row .employee-name {
+  color: #1976d2;
+  font-weight: 700;
+}
+
+.timeline-row.current-user-row .timeline-row-header {
+  background: #e3f2fd;
+  border-left: 3px solid #1976d2;
+  box-shadow: inset 0 0 0 1px #bbdefb;
+}
+
+.timeline-row.current-user-row .timeline-track {
+  box-shadow: inset 0 0 0 1px #bbdefb;
+  background: #f5faff;
+}
+
+.timeline-row.current-user-row .timeline-name {
+  color: #1976d2;
+  font-weight: 700;
 }
 
 .employee-info {
