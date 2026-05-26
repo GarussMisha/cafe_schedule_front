@@ -29,7 +29,7 @@
           </button>
         </div>
 
-        <div v-if="viewMode !== 'month'" class="date-picker">
+        <div v-if="viewMode === 'day'" class="date-picker">
           <label>Выберите дату:</label>
           <input
             type="date"
@@ -459,6 +459,10 @@ function previousPeriod() {
     const d = new Date(selectedDate.value)
     d.setDate(d.getDate() - 1)
     selectedDate.value = d.toISOString().split('T')[0]
+    const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+    if (newMonth !== currentMonth.value) {
+      currentMonth.value = newMonth
+    }
   }
   cancelEditing()
   loadSchedule()
@@ -479,17 +483,30 @@ function nextPeriod() {
     const d = new Date(selectedDate.value)
     d.setDate(d.getDate() + 1)
     selectedDate.value = d.toISOString().split('T')[0]
+    const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+    if (newMonth !== currentMonth.value) {
+      currentMonth.value = newMonth
+    }
   }
   cancelEditing()
   loadSchedule()
 }
 
 function selectDate(date) {
+  viewMode.value = 'day'
+  const d = new Date(date)
   selectedDate.value = date
+  const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  if (newMonth !== currentMonth.value) {
+    currentMonth.value = newMonth
+  }
+  cancelEditing()
+  loadSchedule()
 }
 
 async function applyCafeId() {
   if (!cafeIdInput.value || cafeIdInput.value < 1) return
+  scheduleStore.invalidateScheduleCache()
   scheduleStore.cafeId = cafeIdInput.value
   scheduleError.value = ''
   const ok = await loadSchedule()
@@ -626,11 +643,22 @@ function getMonthDays(monthStr) {
   return days
 }
 
+function getMonthsToLoad() {
+  if (viewMode.value === 'month') {
+    return currentMonth.value
+  }
+  const days = getDaysInPeriod()
+  const monthSet = new Set()
+  days.forEach(day => {
+    monthSet.add(day.substring(0, 7))
+  })
+  const months = Array.from(monthSet).sort()
+  if (months.length === 1) return months[0] + '-01'
+  return months.map(m => m + '-01')
+}
+
 function handleAddEmployees(selectedUsers) {
-  const month = viewMode.value === 'month'
-    ? currentMonth.value
-    : new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
-  const days = getMonthDays(month)
+  const days = getMonthDays(currentMonth.value)
 
   const newEntries = selectedUsers.map(u => ({
     userId: u.id,
@@ -718,7 +746,7 @@ async function saveAllSchedules() {
     })
 
     await scheduleStore.updateAllScheduleData(
-      viewMode.value === 'month' ? currentMonth.value : new Date().toISOString().split('T')[0],
+      currentMonth.value,
       schedulesData
     )
 
@@ -737,8 +765,7 @@ async function saveAllSchedules() {
 async function toggleApproveStatus() {
   const newStatus = !scheduleStore.allSchedule.approved
   try {
-    const month = viewMode.value === 'month' ? currentMonth.value : new Date().toISOString().split('T')[0]
-    await scheduleStore.changeApproveStatus(month, newStatus)
+    await scheduleStore.changeApproveStatus(currentMonth.value, newStatus)
     await loadSchedule()
   } catch (error) {
     console.error('Ошибка при изменении статуса:', error)
@@ -747,8 +774,7 @@ async function toggleApproveStatus() {
 
 async function loadSchedule() {
   try {
-    const month = viewMode.value === 'month' ? currentMonth.value : new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
-    await scheduleStore.fetchAllSchedule(month)
+    await scheduleStore.fetchAllSchedule(getMonthsToLoad())
     return true
   } catch (error) {
     console.error('Ошибка при загрузке расписания:', error)
@@ -904,6 +930,20 @@ h1 {
 .date-picker label {
   font-weight: 600;
   color: #1a1a1a;
+}
+
+.date-picker input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.date-picker input[type="date"]:focus {
+  border-color: #ff9800;
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.1);
 }
 
 

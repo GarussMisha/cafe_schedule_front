@@ -9,6 +9,8 @@ export const useScheduleStore = defineStore('schedule', () => {
     const statusesSchedule = ref([])
     const scheduleStatus = ref([])
     const cafeId = ref(1)
+    const schedulesCache = ref({})
+    const allScheduleMonthsKey = ref('')
     
     // Текущий месяц в формате YYYY-MM-DD (первый день месяца)
     const currentMonth = ref(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
@@ -28,15 +30,79 @@ export const useScheduleStore = defineStore('schedule', () => {
         }
     }
 
-    //2. Получение расписание на указанный месяц по всем сотрудникам.
+    //2. Получение расписание на указанный месяц(ы) по всем сотрудникам.
+    //   month может быть строкой (один месяц) или массивом строк (несколько месяцев — данные будут объединены)
+    //   Всегда запрашивает свежие данные с бэка, но обновляет UI только если данные изменились.
+    //   Это гарантирует актуальность и убирает дёрганье при переключении недель внутри одного месяца.
     async function fetchAllSchedule(month = currentMonth.value) {
         try {
-            const data = await getAllSchedule(month, cafeId.value);
-            allSchedule.value = data;
+            const months = Array.isArray(month) ? [...month] : [month]
+            const newMonthsKey = months.join('|')
+
+            // Всегда запрашиваем с бэка
+            const results = await Promise.all(
+                months.map(m => getAllSchedule(m, cafeId.value))
+            )
+
+            // Сравниваем с кэшем, обновляем если изменилось
+            let cacheUpdated = false
+            months.forEach((m, i) => {
+                const cached = schedulesCache.value[m]
+                const fresh = results[i]
+                if (!cached || JSON.stringify(cached) !== JSON.stringify(fresh)) {
+                    schedulesCache.value[m] = fresh
+                    cacheUpdated = true
+                }
+            })
+
+            // Обновляем отображение, если сменился период или обновились данные
+            const periodChanged = newMonthsKey !== allScheduleMonthsKey.value
+            if (periodChanged || cacheUpdated) {
+                if (months.length === 1) {
+                    allSchedule.value = schedulesCache.value[months[0]]
+                } else {
+                    allSchedule.value = mergeSchedules(months.map(m => schedulesCache.value[m]))
+                }
+                allScheduleMonthsKey.value = newMonthsKey
+            }
         } catch (error) {
             console.error('Error in fetchAllSchedule:', error);
             throw error;
         }
+    }
+
+    function invalidateScheduleCache(month) {
+        if (month) {
+            delete schedulesCache.value[month]
+        } else {
+            schedulesCache.value = {}
+        }
+    }
+
+    // Объединение расписаний из нескольких месяцев в один allSchedule
+    // Склеивает userSchedules по userId, объединяя массивы shifts
+    function mergeSchedules(schedules) {
+        if (!schedules || schedules.length === 0) return null
+        if (schedules.length === 1) return schedules[0]
+
+        const result = JSON.parse(JSON.stringify(schedules[0]))
+        const userMap = new Map()
+
+        for (const schedule of schedules) {
+            if (!schedule.userSchedules) continue
+            for (const user of schedule.userSchedules) {
+                if (!userMap.has(user.userId)) {
+                    userMap.set(user.userId, { ...user, shifts: [] })
+                }
+                const existingUser = userMap.get(user.userId)
+                if (user.shifts) {
+                    existingUser.shifts.push(...user.shifts)
+                }
+            }
+        }
+
+        result.userSchedules = Array.from(userMap.values())
+        return result
     }
 
     //3. Получение статусов смен.
@@ -118,6 +184,7 @@ export const useScheduleStore = defineStore('schedule', () => {
         updateMySchedule,
         changeApproveStatus,
         updateAllScheduleData,
+        invalidateScheduleCache,
         isStatusMySchedule,
         isStatusAllSchedule,
     }
