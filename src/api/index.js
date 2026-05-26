@@ -17,6 +17,7 @@
 
 import axios from 'axios'
 import router from '@/router'
+import { emitToast } from '@/utils/toast'
 
 // Создаем экземпляр axios с базовыми настройками
 const apiClient = axios.create({
@@ -59,7 +60,7 @@ apiClient.interceptors.response.use(
             }
         } else if (status === 403) {
             // Нет доступа
-            alert('Нет доступа к ресурсу')
+            emitToast({ severity: 'error', summary: 'Ошибка', detail: 'Нет доступа к ресурсу', life: 5000 })
         }
         
         console.error('API response ERROR:', error.message)

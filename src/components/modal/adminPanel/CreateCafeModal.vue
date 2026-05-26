@@ -2,56 +2,32 @@
   <div v-if="isOpen" class="modal-overlay" @click.self="closeModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Редактировать пользователя</h3>
+        <h3>Создать кафе</h3>
         <button @click="closeModal" class="modal-close-btn" type="button">
           <i class="pi pi-times"></i>
         </button>
       </div>
 
-      <div v-if="user" class="modal-body">
-        <div class="edit-label">
-          {{ user.firstName }} {{ user.lastName }} — {{ user.username }}
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="cafeName">Название кафе</label>
+          <input id="cafeName" v-model="newCafe.name" placeholder="Введите название" />
         </div>
 
         <div class="form-group">
-          <label for="editUsername">Логин</label>
-          <input id="editUsername" v-model="editUserData.username" />
+          <label for="cafeAddress">Адрес</label>
+          <input id="cafeAddress" type="text" v-model="newCafe.address" placeholder="ул. Ленина, д. 1" />
         </div>
 
         <div class="form-group">
-          <label for="editEmail">Email</label>
-          <input id="editEmail" type="email" v-model="editUserData.email" />
-        </div>
-
-        <div class="form-group">
-          <label for="editFirstName">Имя</label>
-          <input id="editFirstName" type="text" v-model="editUserData.firstName" />
-        </div>
-
-        <div class="form-group">
-          <label for="editLastName">Фамилия</label>
-          <input id="editLastName" type="text" v-model="editUserData.lastName" />
-        </div>
-
-        <div class="form-group">
-          <label for="editPosition">Должность</label>
-          <input id="editPosition" type="text" v-model="editUserData.position" />
-        </div>
-
-        <div class="form-group">
-          <label for="editRoles">Роли</label>
-          <select id="editRoles" v-model="editUserData.roles" multiple>
-            <option v-for="role in roleOptions" :key="role.value" :value="role.value">
-              {{ role.label }}
-            </option>
-          </select>
-          <small>Ctrl+Click для выбора нескольких</small>
+          <label for="cafePhone">Телефон</label>
+          <input id="cafePhone" type="text" v-model="newCafe.phone" placeholder="+7 (xxx) xxx-xx-xx" />
         </div>
       </div>
 
       <div class="modal-actions">
-        <button @click="updateUser" class="btn-primary" type="button" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Обновление...' : 'Обновить пользователя' }}
+        <button @click="createCafe" class="btn-primary" type="button" :disabled="isSubmitting">
+          {{ isSubmitting ? 'Создание...' : 'Создать кафе' }}
         </button>
         <button @click="closeModal" class="btn-secondary" type="button">
           Закрыть
@@ -62,36 +38,27 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { useUserStore } from '@/stores/user';
+import { ref, watch } from 'vue';
+import { createCafe as apiCreateCafe } from '@/api/cafe';
 import { useToast } from 'primevue/usetoast'
 
 const toast = useToast()
-const userStore = useUserStore();
+const newCafe = ref({
+  name: '',
+  address: '',
+  phone: ''
+});
+
 const emit = defineEmits(['close', 'success']);
 
 const props = defineProps({
-  isOpen: Boolean,
-  user: Object
+  isOpen: {
+    type: Boolean
+  }
 });
-
-const isSubmitting = ref(false)
-const editUserData = ref({
-  username: '',
-  email: '',
-  firstName: '',
-  lastName: '',
-  position: '',
-  roles: []
-});
-
-const roleOptions = [
-  { label: 'STAFF', value: 'STAFF' },
-  { label: 'CAFE_ADMIN', value: 'CAFE_ADMIN' },
-  { label: 'USER_ADMIN', value: 'USER_ADMIN' }
-];
 
 const internalVisible = ref(false);
+const isSubmitting = ref(false)
 
 watch(() => props.isOpen, (val) => {
   internalVisible.value = val;
@@ -103,40 +70,32 @@ watch(internalVisible, (val) => {
   }
 });
 
-watch(() => props.user, (newUser) => {
-  if (newUser) {
-    editUserData.value = {
-      username: newUser.username,
-      email: newUser.email,
-      firstName: newUser.firstName || '',
-      lastName: newUser.lastName || '',
-      position: newUser.position || '',
-      roles: [...(newUser.roles || [])]
-    }
-  }
-}, { immediate: true });
-
 function closeModal() {
   internalVisible.value = false;
   emit('close');
 }
 
-async function updateUser() {
+function resetForm() {
+  newCafe.value = { name: '', address: '', phone: '' }
+}
+
+async function createCafe() {
   if (isSubmitting.value) return
-  if (!props.user) {
-    toast.add({ severity: 'warn', summary: 'Внимание', detail: 'Пользователь не выбран', life: 3000 })
+  if (!newCafe.value.name.trim()) {
+    toast.add({ severity: 'warn', summary: 'Внимание', detail: 'Введите название кафе!', life: 3000 })
     return
   }
 
   isSubmitting.value = true
   try {
-    await userStore.updatedUser_store(props.user.id, editUserData.value)
-    toast.add({ severity: 'success', summary: 'Успех', detail: 'Пользователь обновлён!', life: 3000 })
-    emit('success')
-    emit('close')
+    await apiCreateCafe(newCafe.value)
+    toast.add({ severity: 'success', summary: 'Успех', detail: 'Кафе создано!', life: 3000 })
+    resetForm()
+    emit('success');
+    emit('close');
   } catch (error) {
-    console.error('Ошибка обновления пользователя:', error)
-    toast.add({ severity: 'error', summary: 'Ошибка', detail: error.response?.data?.message || error.response?.data || 'Ошибка обновления пользователя', life: 5000 })
+    console.error('E -> CreateCafeModal -> Ошибка создания кафе:', error)
+    toast.add({ severity: 'error', summary: 'Ошибка', detail: error.response?.data?.message || error.response?.data || 'Ошибка создания кафе', life: 5000 })
   } finally {
     isSubmitting.value = false
   }
@@ -202,15 +161,6 @@ async function updateUser() {
   flex: 1;
 }
 
-.edit-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #ff9800;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
 .form-group {
   margin-bottom: 16px;
   display: flex;
@@ -226,8 +176,7 @@ async function updateUser() {
   margin-bottom: 6px;
 }
 
-.form-group input,
-.form-group select {
+.form-group input {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid #ddd;
@@ -236,20 +185,12 @@ async function updateUser() {
   box-sizing: border-box;
   transition: border-color 0.2s;
   font-family: inherit;
-  background: white;
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.form-group input:focus {
   outline: none;
   border-color: #ff9800;
   box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.1);
-}
-
-.form-group small {
-  font-size: 11px;
-  color: #999;
-  margin-top: 4px;
 }
 
 .modal-actions {

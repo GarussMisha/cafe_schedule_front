@@ -122,6 +122,15 @@
       <span class="deco-dot"></span>
       <span class="deco-dot"></span>
     </div>
+
+    <div v-if="!userStore.currentUser" class="login-prompt">
+      <div class="login-prompt-icon"><i class="pi pi-exclamation-circle"></i></div>
+      <p class="login-prompt-title">Пользователь не авторизован</p>
+      <p class="login-prompt-desc">Для просмотра расписания необходимо войти в систему.</p>
+      <button @click="router.push('/login')" class="login-prompt-btn" type="button">
+        Перейти к авторизации
+      </button>
+    </div>
   </main>
 </template>
 
@@ -620,6 +629,54 @@ details li {
 }
 
 /* --- ENTRANCE ANIMATION --- */
+.login-prompt {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  padding: 40px 24px;
+  text-align: center;
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+.login-prompt-icon {
+  font-size: 48px;
+  color: #ff9800;
+  margin-bottom: 16px;
+}
+
+.login-prompt-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+}
+
+.login-prompt-desc {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.login-prompt-btn {
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 10px 28px;
+  background: #ff9800;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.login-prompt-btn:hover {
+  background: #e68900;
+  transform: translateY(-1px);
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

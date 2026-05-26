@@ -4,6 +4,7 @@ import { getAllSchedule, getMySchedule, getStatusesSchedule, changeScheduleStatu
 
 export const useScheduleStore = defineStore('schedule', () => {
     //State
+    const isLoading = ref(false)
     const mySchedule = ref([])
     const allSchedule = ref([])
     const statusesSchedule = ref([])
@@ -21,12 +22,53 @@ export const useScheduleStore = defineStore('schedule', () => {
 
     //1. Получение расписания по текущему пользователю.
     async function fetchMySchedule(month = currentMonth.value) {
+        isLoading.value = true
         try {
             const data = await getMySchedule(month, cafeId.value);
             mySchedule.value = data;
         } catch (error) {
             console.error('Error in fetchMySchedule:', error);
             throw error;
+        } finally {
+            isLoading.value = false
+        }
+    }
+
+    //2. Получение расписание на указанный месяц(ы) по всем сотрудникам.
+    async function fetchAllSchedule(month = currentMonth.value) {
+        isLoading.value = true
+        try {
+            const months = Array.isArray(month) ? [...month] : [month]
+            const newMonthsKey = months.join('|')
+
+            const results = await Promise.all(
+                months.map(m => getAllSchedule(m, cafeId.value))
+            )
+
+            let cacheUpdated = false
+            months.forEach((m, i) => {
+                const cached = schedulesCache.value[m]
+                const fresh = results[i]
+                if (!cached || JSON.stringify(cached) !== JSON.stringify(fresh)) {
+                    schedulesCache.value[m] = fresh
+                    cacheUpdated = true
+                }
+            })
+
+            const periodChanged = newMonthsKey !== allScheduleMonthsKey.value
+            if (periodChanged || cacheUpdated) {
+                if (months.length === 1) {
+                    allSchedule.value = schedulesCache.value[months[0]]
+                } else {
+                    allSchedule.value = mergeSchedules(months.map(m => schedulesCache.value[m]))
+                }
+                allScheduleMonthsKey.value = newMonthsKey
+            }
+        } catch (error) {
+            console.error('Error in fetchAllSchedule:', error);
+            throw error;
+        } finally {
+            isLoading.value = false
         }
     }
 
@@ -107,17 +149,21 @@ export const useScheduleStore = defineStore('schedule', () => {
 
     //3. Получение статусов смен.
     async function fetchStatusesSchedule() {
+        isLoading.value = true
         try {
             const data = await getStatusesSchedule(cafeId.value);
             statusesSchedule.value = data;
         } catch (error) {
             console.error('Error in fetchStatusesSchedule:', error);
             throw error;
+        } finally {
+            isLoading.value = false
         }
     }
 
     //4. Получение статуса расписания (утвержден/не утвержден)
     async function fetchScheduleStatus(month = currentMonth.value) {
+        isLoading.value = true
         try {
             const data = await getScheduleStatus(month, cafeId.value);
             console.log(data)
@@ -125,23 +171,28 @@ export const useScheduleStore = defineStore('schedule', () => {
         } catch (error) {
             console.error('Error in fetchScheduleStatus:', error);
             throw error;
+        } finally {
+            isLoading.value = false
         }
     }
 
     //5. Обновление расписания по текущему пользователю (поддержка shifts)
     async function updateMySchedule(month = currentMonth.value, shiftsData) {
+        isLoading.value = true
         try {
-            // Отправляем shifts (массив смен с startTime, endTime, status)
             const data = await updateMyScheduleAPI(month, { shifts: shiftsData }, cafeId.value);
             mySchedule.value = data;
         } catch (error) {
             console.error('Error in updateMySchedule:', error);
             throw error;
+        } finally {
+            isLoading.value = false
         }
     }
 
     //6. Изменение статуса расписания (approved/not approved)
     async function changeApproveStatus(month = currentMonth.value, approve) {
+        isLoading.value = true
         try {
             console.log("changeApproveStatus", month, approve)
             const data = await changeScheduleStatus({ month, approved: approve }, cafeId.value);
@@ -150,13 +201,15 @@ export const useScheduleStore = defineStore('schedule', () => {
         } catch (error) {
             console.error('Error in changeApproveStatus:', error);
             throw error;
+        } finally {
+            isLoading.value = false
         }
     }
 
     //7. Обновление расписания для всех сотрудников
     async function updateAllScheduleData(month = currentMonth.value, schedulesData) {
+        isLoading.value = true
         try {
-            // Отправляем FullScheduleDto: { cafeId, approved, userSchedules }
             const payload = {
                 cafeId: cafeId.value,
                 approved: allSchedule.value?.approved || false,
@@ -167,10 +220,13 @@ export const useScheduleStore = defineStore('schedule', () => {
         } catch (error) {
             console.error('Error in updateAllScheduleData:', error);
             throw error;
+        } finally {
+            isLoading.value = false
         }
     }
 
     return {
+        isLoading,
         currentMonth,
         cafeId,
         fetchMySchedule,

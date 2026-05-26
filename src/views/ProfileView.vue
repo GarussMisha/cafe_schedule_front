@@ -48,6 +48,9 @@
             <button @click="startEditing" class="edit-btn" type="button">
               ✏️ Редактировать расписание
             </button>
+            <button @click="printSchedule" class="print-btn" type="button" title="Печать">
+              <i class="pi pi-print"></i> Печать
+            </button>
           </template>
           <template v-else>
             <button @click="saveSchedule" class="save-btn" type="button">
@@ -67,7 +70,21 @@
         </div>
       </div>
 
-      <template v-if="scheduleStore.mySchedule?.userSchedules?.[0]">
+      <template v-if="scheduleStore.isLoading">
+        <div class="schedule-grid-container">
+          <Skeleton width="100%" height="40px" borderRadius="8px" class="skeleton-mb" />
+          <Skeleton width="100%" height="65px" borderRadius="8px" class="skeleton-mb" />
+          <Skeleton width="100%" height="65px" borderRadius="8px" class="skeleton-mb" />
+          <Skeleton width="100%" height="65px" borderRadius="8px" />
+        </div>
+        <div class="schedule-statistics">
+          <Skeleton width="200px" height="24px" borderRadius="8px" class="skeleton-mb" />
+          <div class="statistics-grid">
+            <Skeleton width="100%" height="80px" borderRadius="12px" v-for="i in 4" :key="i" />
+          </div>
+        </div>
+      </template>
+      <template v-else-if="scheduleStore.mySchedule?.userSchedules?.[0]">
         <div class="schedule-grid-container">
           <div class="schedule-table-wrapper">
             <div class="schedule-table">
@@ -121,9 +138,11 @@
           </div>
         </div>
       </template>
-      <template v-else>
+      <template v-else-if="!scheduleStore.isLoading">
         <div class="no-data">
-          <p>Нет данных для отображения</p>
+          <div class="empty-state-icon"><i class="pi pi-calendar-times"></i></div>
+          <p class="empty-state-title">Нет данных</p>
+          <p class="empty-state-desc">Расписание на {{ formatMonth(currentMonth) }} ещё не создано.<br v-if="userStore.isManager" />Нажмите «Редактировать расписание», чтобы начать.</p>
         </div>
       </template>
       
@@ -172,7 +191,7 @@
             <button class="popover-save-btn" @click="closePopover" type="button">
               Сохранить
             </button>
-            <button class="popover-cancel-btn" @click="closePopover" type="button">
+            <button class="popover-cancel-btn" @click="cancelPopover" type="button">
               Отмена
             </button>
           </div>
@@ -209,8 +228,11 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useScheduleStore } from '@/stores/schedule'
+import { useToast } from 'primevue/usetoast'
+import Skeleton from 'primevue/skeleton'
 import { getDayOfWeekShort, isWeekend, isToday, formatMonth, getPreviousMonth, getNextMonth, formatTime } from '@/utils/schedule'
 
+const toast = useToast()
 const userStore = useUserStore()
 const scheduleStore = useScheduleStore()
 
@@ -220,6 +242,7 @@ const editingCell = ref(null)
 const editedShifts = ref({})
 const originalSchedule = ref(null)
 const popoverStyle = ref({ position: 'fixed', zIndex: 9999 })
+const popoverSnapshot = ref(null)
 
 const scheduleStatusesFromStore = computed(() => scheduleStore.statusesSchedule)
 
@@ -341,6 +364,7 @@ function onCellClick(day, event) {
   if (!editedShifts.value[key]) {
     editedShifts.value[key] = shift ? { ...shift } : { date: day, startTime: '', endTime: '', status: 'OFF' }
   }
+  popoverSnapshot.value = { ...editedShifts.value[key] }
 }
 
 const formatDateDisplay = (dateStr) => {
@@ -487,12 +511,38 @@ function getIsCellEdited(day) {
 }
 
 function closePopover() {
+  popoverSnapshot.value = null
+  editingCell.value = null
+}
+
+function cancelPopover() {
+  if (popoverSnapshot.value && editingCell.value) {
+    editedShifts.value[editingCell.value.day] = { ...popoverSnapshot.value }
+  }
+  popoverSnapshot.value = null
   editingCell.value = null
 }
 
 function handleClickOutside(event) {
   if (editingCell.value && !event.target.closest('.edit-popover') && !event.target.closest('.cell')) {
-    closePopover()
+    cancelPopover()
+  }
+}
+
+function handleKeydown(event) {
+  if (event.key === 'Escape' && editingCell.value) {
+    cancelPopover()
+    event.preventDefault()
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key === 's' && isEditingSchedule.value) {
+    event.preventDefault()
+    saveSchedule()
+  }
+  if (event.key === 'ArrowLeft' && !editingCell.value) {
+    previousMonth()
+  }
+  if (event.key === 'ArrowRight' && !editingCell.value) {
+    nextMonth()
   }
 }
 
@@ -546,11 +596,15 @@ async function saveSchedule() {
     isEditingSchedule.value = false
     
     await loadSchedule()
-    alert('Расписание успешно сохранено!')
+    toast.add({ severity: 'success', summary: 'Успех', detail: 'Расписание успешно сохранено!', life: 3000 })
   } catch (error) {
     console.error('Ошибка при сохранении:', error)
-    alert('Ошибка при сохранении расписания')
+    toast.add({ severity: 'error', summary: 'Ошибка', detail: 'Ошибка при сохранении расписания', life: 5000 })
   }
+}
+
+function printSchedule() {
+  window.print()
 }
 
 function getStatisticLabel(name) {
@@ -596,17 +650,19 @@ onMounted(async () => {
   await userStore.init()
   
   if (userStore.currentUser?.cafeId) {
-    scheduleStore.cafeId.value = userStore.currentUser.cafeId
+    scheduleStore.cafeId = userStore.currentUser.cafeId
   }
   
   await loadSchedule()
   await scheduleStore.fetchStatusesSchedule()
   
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -630,6 +686,10 @@ main {
 @keyframes profileEnter {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.skeleton-mb {
+  margin-bottom: 12px;
 }
 
 .profile-container h1 {
@@ -768,6 +828,25 @@ main {
   background: rgba(255, 68, 68, 0.1);
   color: #ff3c3c;
   border-color: #ff3c3c;
+}
+
+.print-btn {
+  padding: 8px 20px;
+  border: 1.5px solid #607d8b;
+  background: transparent;
+  color: #607d8b;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 400;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  letter-spacing: 0.02em;
+}
+
+.print-btn:hover {
+  background: rgba(96, 125, 139, 0.1);
+  color: #455a64;
+  border-color: #455a64;
 }
 
 .status-legend {
@@ -1053,11 +1132,30 @@ main {
 .no-data {
   background: #ffffff;
   border-radius: 16px;
-  padding: 40px;
+  padding: 60px 40px;
   text-align: center;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   color: #888;
   margin-bottom: 24px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  color: #ddd;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.empty-state-desc {
+  font-size: 14px;
+  color: #999;
+  line-height: 1.6;
 }
 
 /* edit popover styles */

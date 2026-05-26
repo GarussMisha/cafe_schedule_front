@@ -50,7 +50,7 @@
           {{ userStore.isLoading ? 'Вход...' : 'Войти' }}
         </button>
         
-        <a class="forgot-link" href="#" onclick="alert('Напишите на почту админа admin@example.com')">
+        <a class="forgot-link" href="#" @click.prevent="showForgotHint">
           Забыли пароль?
         </a>
       </form>
@@ -64,7 +64,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useToast } from 'primevue/usetoast'
 
+const toast = useToast()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -253,6 +255,10 @@ async function handleLogin() {
     console.error('Ошибка логина:', err)
     error.value = 'Неверный логин или пароль'
   }
+}
+
+function showForgotHint() {
+  toast.add({ severity: 'info', summary: 'Восстановление пароля', detail: 'Напишите на почту админа admin@example.com', life: 5000 })
 }
 </script>
 

@@ -39,16 +39,18 @@
         </div>
 
         <div class="cafe-id-controls">
-          <label>ID кафе:</label>
-          <input
-            type="number"
-            v-model.number="cafeIdInput"
-            min="1"
-            class="cafe-id-input"
+          <label>Кафе:</label>
+          <Select
+            :options="cafeOptions"
+            optionLabel="name"
+            optionValue="id"
+            v-model="cafeIdInput"
+            @change="applyCafeId"
+            placeholder="Выберите кафе"
+            class="cafe-select"
+            :loading="cafesLoading"
+            :disabled="cafesLoading"
           />
-          <button @click="applyCafeId" class="cafe-id-btn" type="button">
-            Загрузить
-          </button>
           <span v-if="scheduleError" class="cafe-id-error">{{ scheduleError }}</span>
         </div>
       </div>
@@ -83,6 +85,9 @@
               >
                 {{ scheduleStore.allSchedule?.approved ? 'Отозвать утверждение' : 'Утвердить расписание' }}
               </button>
+              <button @click="printSchedule" class="print-btn" type="button" title="Печать">
+                <i class="pi pi-print"></i> Печать
+              </button>
             </template>
           </template>
           <template v-else>
@@ -106,7 +111,13 @@
         </div>
       </div>
 
-      <div class="schedule-grid-container" v-if="scheduleStore.allSchedule?.userSchedules?.length > 0 && getDaysInPeriod().length > 0">
+      <template v-if="scheduleStore.isLoading">
+        <div class="schedule-grid-container">
+          <Skeleton width="100%" height="40px" borderRadius="8px" class="skeleton-mb" />
+          <Skeleton width="100%" height="65px" borderRadius="8px" class="skeleton-mb" v-for="i in 3" :key="i" />
+        </div>
+      </template>
+      <div class="schedule-grid-container" v-else-if="scheduleStore.allSchedule?.userSchedules?.length > 0 && getDaysInPeriod().length > 0">
         <template v-if="viewMode !== 'day'">
           <div class="schedule-table-wrapper">
             <div class="schedule-table">
@@ -245,8 +256,13 @@
         </template>
       </div>
 
-      <div v-else class="no-data">
-        <p>Нет данных для отображения</p>
+      <div v-else-if="!scheduleStore.isLoading" class="no-data">
+        <div class="empty-state-icon"><i class="pi pi-calendar-plus"></i></div>
+        <p class="empty-state-title">Нет данных</p>
+        <p class="empty-state-desc">Расписание на {{ getPeriodTitle() }} ещё не создано.</p>
+        <button v-if="userStore.isManager" @click="handleCreateSchedule" class="create-btn empty-state-btn" type="button">
+          + Создать расписание
+        </button>
       </div>
     </div>
   </main>
@@ -261,6 +277,7 @@
     @remove="handleRemoveEmployee"
   />
 
+  <ConfirmDialog />
   <!-- Popover для редактирования смен -->
   <div v-if="isEditingSchedule && editingCell" class="edit-popover" :style="popoverStyle">
     <div class="popover-header">
@@ -306,7 +323,7 @@
         <button class="popover-save-btn" @click="closePopover" type="button">
           Сохранить
         </button>
-        <button class="popover-cancel-btn" @click="closePopover" type="button">
+        <button class="popover-cancel-btn" @click="cancelPopover" type="button">
           Отмена
         </button>
       </div>
@@ -318,14 +335,24 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useScheduleStore } from '@/stores/schedule'
 import { useUserStore } from '@/stores/user'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
+import Skeleton from 'primevue/skeleton'
+import Select from 'primevue/select'
+import ConfirmDialog from 'primevue/confirmdialog'
+import { getAllCafes } from '@/api/cafe'
 import { getDayOfWeekShort, isWeekend, isToday, getPreviousMonth, getNextMonth, formatTime } from '@/utils/schedule'
 import AddEmployeeModal from '@/components/modal/schedule/AddEmployeeModal.vue'
 
+const toast = useToast()
+const confirm = useConfirm()
 const scheduleStore = useScheduleStore()
 const userStore = useUserStore()
 
 const cafeIdInput = ref(scheduleStore.cafeId)
 const scheduleError = ref('')
+const cafeOptions = ref([])
+const cafesLoading = ref(false)
 
 const viewMode = ref('month')
 function getLocalDateString(date) {
@@ -347,6 +374,7 @@ const editingCell = ref(null)
 const editedShifts = ref({})
 const originalSchedule = ref(null)
 const popoverStyle = ref({ position: 'fixed', zIndex: 9999 })
+const popoverSnapshot = ref(null)
 
 const isScheduleEmpty = computed(() => !scheduleStore.allSchedule?.userSchedules?.length)
 
@@ -448,6 +476,7 @@ function onCellClick(userIdx, day, event) {
 	if (!editedShifts.value[key]) {
 		editedShifts.value[key] = shift ? { ...shift } : { date: day, startTime: '', endTime: '', status: 'OFF' }
 	}
+	popoverSnapshot.value = { ...editedShifts.value[key] }
 }
 
 const formatDateDisplay = (dateStr) => {
@@ -636,16 +665,34 @@ function selectDate(date) {
 }
 
 async function applyCafeId() {
-  if (!cafeIdInput.value || cafeIdInput.value < 1) return
+  if (!cafeIdInput.value) return
   scheduleStore.invalidateScheduleCache()
   scheduleStore.cafeId = cafeIdInput.value
   scheduleError.value = ''
+  cancelEditing()
   const ok = await loadSchedule()
   if (!ok) {
-    scheduleError.value = 'Ошибка загрузки: кафе с ID ' + cafeIdInput.value + ' не найдено'
+    const cafe = cafeOptions.value.find(c => c.id === cafeIdInput.value)
+    scheduleError.value = 'Ошибка загрузки: кафе "' + (cafe?.name || cafeIdInput.value) + '" не найдено'
     return
   }
   await scheduleStore.fetchStatusesSchedule()
+}
+
+async function loadCafes() {
+  cafesLoading.value = true
+  try {
+    const cafes = await getAllCafes()
+    cafeOptions.value = cafes
+    if (cafes.length > 0 && !cafeIdInput.value) {
+      cafeIdInput.value = cafes[0].id
+      scheduleStore.cafeId = cafes[0].id
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки кафе:', error)
+  } finally {
+    cafesLoading.value = false
+  }
 }
 
 function getShiftForDay(user, day) {
@@ -776,6 +823,16 @@ function getCoverageColor(hour) {
 }
 
 function closePopover() {
+  popoverSnapshot.value = null
+  editingCell.value = null
+}
+
+function cancelPopover() {
+  if (popoverSnapshot.value && editingCell.value) {
+    const key = `${editingCell.value.userIdx}-${editingCell.value.day}`
+    editedShifts.value[key] = { ...popoverSnapshot.value }
+  }
+  popoverSnapshot.value = null
   editingCell.value = null
 }
 
@@ -797,7 +854,24 @@ function getIsCellEdited(userIdx, day) {
 
 function handleClickOutside(event) {
   if (editingCell.value && !event.target.closest('.edit-popover') && !event.target.closest('.cell') && !event.target.closest('.timeline-track')) {
-    closePopover()
+    cancelPopover()
+  }
+}
+
+function handleKeydown(event) {
+  if (event.key === 'Escape' && editingCell.value) {
+    cancelPopover()
+    event.preventDefault()
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key === 's' && isEditingSchedule.value) {
+    event.preventDefault()
+    saveAllSchedules()
+  }
+  if (event.key === 'ArrowLeft' && !editingCell.value && !showAddEmployeeModal.value) {
+    previousPeriod()
+  }
+  if (event.key === 'ArrowRight' && !editingCell.value && !showAddEmployeeModal.value) {
+    nextPeriod()
   }
 }
 
@@ -942,10 +1016,10 @@ async function saveAllSchedules() {
     isEditingSchedule.value = false
     
     await loadSchedule()
-    alert('Расписание успешно сохранено!')
+    toast.add({ severity: 'success', summary: 'Успех', detail: 'Расписание успешно сохранено!', life: 3000 })
   } catch (error) {
     console.error('Ошибка при сохранении:', error)
-    alert('Ошибка при сохранении расписания')
+    toast.add({ severity: 'error', summary: 'Ошибка', detail: 'Ошибка при сохранении расписания', life: 5000 })
   }
 }
 
@@ -969,14 +1043,25 @@ async function loadSchedule() {
   }
 }
 
+function printSchedule() {
+  window.print()
+}
+
 function handleRemoveEmployee(userId) {
   const idx = scheduleStore.allSchedule.userSchedules.findIndex(u => u.userId === userId)
   if (idx === -1) return
   const user = scheduleStore.allSchedule.userSchedules[idx]
-  if (confirm(`Вы уверены, что хотите удалить ${user.firstName} ${user.lastName} из расписания?`)) {
-    scheduleStore.allSchedule.userSchedules.splice(idx, 1)
-    editedShifts.value = {}
-  }
+  confirm.require({
+    message: `Вы уверены, что хотите удалить ${user.firstName} ${user.lastName} из расписания?`,
+    header: 'Подтверждение удаления',
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Отмена',
+    acceptLabel: 'Удалить',
+    accept: () => {
+      scheduleStore.allSchedule.userSchedules.splice(idx, 1)
+      editedShifts.value = {}
+    }
+  })
 }
 
 onMounted(async () => {
@@ -986,8 +1071,10 @@ onMounted(async () => {
   selectedDate.value = getWeekStart(today)
 
   await userStore.init()
+
+  await loadCafes()
   
-  if (userStore.currentUser?.cafeId) {
+  if (userStore.currentUser?.cafeId && !cafeIdInput.value) {
     scheduleStore.cafeId = userStore.currentUser.cafeId
     cafeIdInput.value = userStore.currentUser.cafeId
   }
@@ -996,10 +1083,12 @@ onMounted(async () => {
   await scheduleStore.fetchStatusesSchedule()
   
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -1153,37 +1242,8 @@ h1 {
   white-space: nowrap;
 }
 
-.cafe-id-input {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  width: 80px;
-  text-align: center;
-  transition: border-color 0.2s;
-}
-
-.cafe-id-input:focus {
-  outline: none;
-  border-color: #ff9800;
-  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.1);
-}
-
-.cafe-id-btn {
-  padding: 8px 16px;
-  border: 1.5px solid #ff9800;
-  background: transparent;
-  color: #ff9800;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 0.85rem;
-  transition: all 0.3s ease;
-}
-
-.cafe-id-btn:hover {
-  background: rgba(255, 152, 0, 0.1);
-  transform: translateY(-1px);
+.cafe-select {
+  min-width: 200px;
 }
 
 .cafe-id-error {
@@ -1316,6 +1376,25 @@ h1 {
   background: rgba(76, 175, 80, 0.1);
   color: #3b9a41;
   border-color: #3b9a41;
+}
+
+.print-btn {
+  padding: 8px 20px;
+  border: 1.5px solid #607d8b;
+  background: transparent;
+  color: #607d8b;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 400;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  letter-spacing: 0.02em;
+}
+
+.print-btn:hover {
+  background: rgba(96, 125, 139, 0.1);
+  color: #455a64;
+  border-color: #455a64;
 }
 
 .status-legend {
@@ -1785,6 +1864,36 @@ h1 {
   border-radius: 12px;
   color: #999;
   font-size: 16px;
+}
+
+.skeleton-mb {
+  margin-bottom: 12px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  color: #ddd;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.empty-state-desc {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.empty-state-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 @media (max-width: 1200px) {

@@ -11,6 +11,9 @@
                 <button v-if="!isHomePage" @click="goBack" class="headbar-btn" type="button">
                     <i class="pi pi-arrow-left"></i> Назад
                 </button>
+                <button @click="toggleDarkMode" class="headbar-btn" type="button" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
+                    <i :class="['pi', isDark ? 'pi-sun' : 'pi-moon']"></i>
+                </button>
             </div>
             <button @click="logout" class="headbar-btn headbar-btn-logout" type="button">
                 <i class="pi pi-sign-out"></i> Выход
@@ -20,7 +23,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useUserStore } from '@/stores/user';
 import { useRouter, useRoute } from 'vue-router';
 
@@ -30,6 +33,14 @@ const route = useRoute();
 
 const isHomePage = computed(() => route.name === 'home')
 const isAdminPage = computed(() => route.name === 'adminPanel')
+
+const isDark = ref(document.documentElement.classList.contains('my-app-dark'))
+
+function toggleDarkMode() {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('my-app-dark')
+  localStorage.setItem('darkMode', isDark.value ? 'true' : 'false')
+}
 
 function logout() {
   userStore.logout()

@@ -1,4 +1,5 @@
 <template>
+  <Toast position="top-right" />
   <Headbar v-if="!isLoginPage" :key="route.path" />
   <RouterView />
 </template>
@@ -7,8 +8,11 @@
 import { onMounted, computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useToast } from 'primevue/usetoast'
+import { onToast } from '@/utils/toast'
 import Headbar from '@/components/Headbar.vue'
 
+const toast = useToast()
 const userStore = useUserStore()
 const route = useRoute()
 
@@ -16,6 +20,13 @@ const isLoginPage = computed(() => route.path === '/login')
 
 onMounted(() => {
   userStore.init()
+  onToast((options) => {
+    toast.add(options)
+  })
+  const saved = localStorage.getItem('darkMode')
+  if (saved === 'true') {
+    document.documentElement.classList.add('my-app-dark')
+  }
 })
 </script>
 
@@ -61,6 +72,52 @@ body::after {
 
 * {
   box-sizing: border-box;
+}
+
+.my-app-dark body {
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460) !important;
+}
+
+.my-app-dark .headbar {
+  background: #1e1e2f !important;
+  border-bottom-color: rgba(255,255,255,0.1) !important;
+}
+
+.my-app-dark .headbar-btn {
+  color: #ccc !important;
+  border-color: #444 !important;
+}
+
+.my-app-dark .headbar-btn:hover {
+  border-color: #ff9800 !important;
+  color: #ff9800 !important;
+}
+
+.my-app-dark .headbar-btn-logout {
+  border-color: #ff9800 !important;
+  color: #ff9800 !important;
+}
+
+@media print {
+  .headbar, .view-controls, .approve-section, .status-legend, .month-controls-compact,
+  .action-buttons, .edit-popover, .cafe-id-controls, .footer-decoration, .user-info,
+  .schedule-statistics, .instructions-card, .feed-container, .welcome-card, .stats-row,
+  .greeting-section, .btn-container, .login-prompt {
+    display: none !important;
+  }
+  .schedule-grid-container, .schedule-table, .profile-container {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+  body {
+    background: white !important;
+  }
+  .schedule-table-wrapper {
+    overflow: visible !important;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
