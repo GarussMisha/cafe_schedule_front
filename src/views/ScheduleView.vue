@@ -107,62 +107,137 @@
       </div>
 
       <div class="schedule-grid-container" v-if="scheduleStore.allSchedule?.userSchedules?.length > 0 && getDaysInPeriod().length > 0">
-        <div class="schedule-table-wrapper">
-          <div class="schedule-table">
-            <div class="table-header" :style="{ gridTemplateColumns: gridTemplateCols }">
-              <div class="header-corner">Сотрудник</div>
-              <div 
-                v-for="day in getDaysInPeriod()" 
-                :key="day"
-                :class="['header-day', {
-                  'today-col': isToday(day),
-                  'weekend-col': isWeekend(day)
-                }]">
-                <div class="day-date">{{ new Date(day).getDate() }}</div>
-                <div class="day-name">{{ getDayOfWeekShort(day) }}</div>
+        <template v-if="viewMode !== 'day'">
+          <div class="schedule-table-wrapper">
+            <div class="schedule-table">
+              <div class="table-header" :style="{ gridTemplateColumns: gridTemplateCols }">
+                <div class="header-corner">Сотрудник</div>
+                <div 
+                  v-for="day in getDaysInPeriod()" 
+                  :key="day"
+                  :class="['header-day', {
+                    'today-col': isToday(day),
+                    'weekend-col': isWeekend(day)
+                  }]">
+                  <div class="day-date">{{ new Date(day).getDate() }}</div>
+                  <div class="day-name">{{ getDayOfWeekShort(day) }}</div>
+                </div>
               </div>
-            </div>
 
-            <div 
-              v-for="(user, userIdx) in scheduleStore.allSchedule.userSchedules"
-              :key="user.userId"
-              class="table-row" :style="{ gridTemplateColumns: gridTemplateCols }">
-              
-              <div class="row-header">
-                <div class="employee-info">
-                  <div class="employee-name">{{ user.firstName }} {{ user.lastName }}</div>
-                  <div class="employee-position">{{ user.position }}</div>
+              <div 
+                v-for="(user, userIdx) in scheduleStore.allSchedule.userSchedules"
+                :key="user.userId"
+                class="table-row" :style="{ gridTemplateColumns: gridTemplateCols }">
+             
+                <div class="row-header">
+                  <div class="employee-info">
+                    <div class="employee-name">{{ user.firstName }} {{ user.lastName }}</div>
+                    <div class="employee-position">{{ user.position }}</div>
+                  </div>
+
                 </div>
 
-              </div>
-
-              <div 
-                v-for="day in getDaysInPeriod()"
-                :key="`${user.userId}-${day}`"
-                :class="['cell', {
-                  'today-col': isToday(day),
-                  'weekend-col': isWeekend(day),
-                  'editing': isEditingSchedule
-                }]"
-                :style="getCellBackground(userIdx, day)"
-                @click="onCellClick(userIdx, day, $event)">
-                
-               <div class="cell-content">
-                  <div class="shift-display">
-                    <div class="shift-time" v-if="getShiftForDayWithEdit(userIdx, day) && !isNonWorkingShift(getShiftForDayWithEdit(userIdx, day).status)">
-                      <span class="shift-start">{{ formatTime(getShiftForDayWithEdit(userIdx, day).startTime) }}</span>
-                      <span class="shift-separator">—</span>
-                      <span class="shift-end">{{ formatTime(getShiftForDayWithEdit(userIdx, day).endTime) }}</span>
-                    </div>
-                    <div class="shift-edit-indicator" v-if="isEditingSchedule && getIsCellEdited(userIdx, day)">
-                      <i class="pi pi-star"></i>
+                <div 
+                  v-for="day in getDaysInPeriod()"
+                  :key="`${user.userId}-${day}`"
+                  :class="['cell', {
+                    'today-col': isToday(day),
+                    'weekend-col': isWeekend(day),
+                    'editing': isEditingSchedule
+                  }]"
+                  :style="getCellBackground(userIdx, day)"
+                  @click="onCellClick(userIdx, day, $event)">
+                 
+                 <div class="cell-content">
+                    <div class="shift-display">
+                      <div class="shift-time" v-if="getShiftForDayWithEdit(userIdx, day) && !isNonWorkingShift(getShiftForDayWithEdit(userIdx, day).status)">
+                        <span class="shift-start">{{ formatTime(getShiftForDayWithEdit(userIdx, day).startTime) }}</span>
+                        <span class="shift-separator">—</span>
+                        <span class="shift-end">{{ formatTime(getShiftForDayWithEdit(userIdx, day).endTime) }}</span>
+                      </div>
+                      <div class="shift-edit-indicator" v-if="isEditingSchedule && getIsCellEdited(userIdx, day)">
+                        <i class="pi pi-star"></i>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </template>
+
+        <template v-else>
+          <div class="day-timeline-wrapper">
+            <div class="timeline-scroll-area">
+              <div class="timeline-row timeline-header-row">
+                <div class="timeline-row-header">
+                  <div class="timeline-corner-text">Сотрудник</div>
+                </div>
+                <div class="timeline-track timeline-header-track">
+                  <div v-for="h in 25" :key="h" class="timeline-hour-header">
+                    <span class="hour-primary">{{ String((h - 1) % 24).padStart(2, '0') }}</span>
+                    <span class="hour-secondary">:00</span>
+                  </div>
+                  <div v-if="showNowIndicator" class="now-indicator" :style="{ left: currentTimePercent + '%' }"></div>
+                </div>
+              </div>
+
+              <div 
+                v-for="(user, userIdx) in scheduleStore.allSchedule.userSchedules"
+                :key="user.userId"
+                class="timeline-row"
+                :class="{ 'timeline-row-editing': isEditingSchedule }">
+                <div class="timeline-row-header">
+                  <div class="timeline-employee-info">
+                    <div class="timeline-name">{{ user.firstName }} {{ user.lastName }}</div>
+                    <div class="timeline-position">{{ user.position }}</div>
+                  </div>
+                </div>
+                <div class="timeline-track" @click="onCellClick(userIdx, selectedDate, $event)">
+                  <div 
+                    v-if="getShiftForDayWithEdit(userIdx, selectedDate) && getShiftForDayWithEdit(userIdx, selectedDate).status !== 'OFF'"
+                    class="timeline-bar"
+                    :class="{ 'timeline-bar-full': isFullDayShift(getShiftForDayWithEdit(userIdx, selectedDate).status) }"
+                    :style="getShiftBarStyle(getShiftForDayWithEdit(userIdx, selectedDate))"
+                    @mouseenter="onBarMouseEnter(userIdx, $event)"
+                    @mousemove="onBarMouseMove"
+                    @mouseleave="onBarMouseLeave"
+                  ></div>
+                  <div 
+                    v-for="h in 25" 
+                    :key="h" 
+                    class="timeline-hour-marker"
+                    :class="{ 'marker-hour-start': h === 1 || (h - 1) % 3 === 0 }"
+                  ></div>
+                  <div v-if="showNowIndicator" class="now-indicator" :style="{ left: currentTimePercent + '%' }"></div>
+                </div>
+              </div>
+
+              <div class="timeline-row coverage-row">
+                <div class="timeline-row-header">
+                  <div class="timeline-coverage-label">
+                    <i class="pi pi-users"></i> Покрытие
+                  </div>
+                </div>
+                <div class="timeline-track coverage-track">
+                  <div 
+                    v-for="h in 25" 
+                    :key="h"
+                    class="coverage-cell"
+                    :style="{ backgroundColor: getCoverageColor((h - 1) % 24) }"
+                    :title="'Сотрудников в ' + (h - 1) + ':00: ' + getCoverageCount((h - 1) % 24)">
+                    <span class="coverage-count">{{ getCoverageCount((h - 1) % 24) }}</span>
+                  </div>
+                  <div v-if="showNowIndicator" class="now-indicator" :style="{ left: currentTimePercent + '%' }"></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <div v-if="tooltip.show" class="timeline-tooltip" :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }">
+            {{ tooltip.text }}
+          </div>
+        </template>
       </div>
 
       <div v-else class="no-data">
@@ -248,7 +323,14 @@ const cafeIdInput = ref(scheduleStore.cafeId)
 const scheduleError = ref('')
 
 const viewMode = ref('month')
-const selectedDate = ref(new Date().toISOString().split('T')[0])
+function getLocalDateString(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+const selectedDate = ref(getLocalDateString(new Date()))
 const currentMonth = ref(scheduleStore.currentMonth)
 const currentWeekStart = ref('')
 
@@ -278,23 +360,65 @@ const statusOptions = computed(() => {
   }))
 })
 
+const currentTimePercent = computed(() => {
+  const now = new Date()
+  return ((now.getHours() * 60 + now.getMinutes()) / (24 * 60)) * 100
+})
+
+const showNowIndicator = computed(() => isToday(selectedDate.value))
+
+const tooltip = ref({ show: false, text: '', x: 0, y: 0 })
+
+function getStatusName(shift) {
+  const status = scheduleStore.statusesSchedule?.find(s => s.id === shift.status)
+  return status?.name_rus || shift.status
+}
+
+function onBarMouseEnter(userIdx, event) {
+  const shift = getShiftForDayWithEdit(userIdx, selectedDate.value)
+  if (shift) {
+    const text = isFullDayShift(shift.status)
+      ? getStatusName(shift)
+      : `${formatTime(shift.startTime)} — ${formatTime(shift.endTime)}`
+    tooltip.value = {
+      show: true,
+      text,
+      x: event.clientX,
+      y: event.clientY
+    }
+  }
+}
+
+function onBarMouseMove(event) {
+  if (tooltip.value.show) {
+    tooltip.value.x = event.clientX
+    tooltip.value.y = event.clientY
+  }
+}
+
+function onBarMouseLeave() {
+  tooltip.value.show = false
+}
+
 function onCellClick(userIdx, day, event) {
-	if (!isEditingSchedule.value) return
+	if (!isEditingSchedule.value) {
+    return
+  }
 	
-	const rect = event.target.getBoundingClientRect()
 	const popoverWidth = 240
 	const popoverHeight = 280
 	
-	let left = rect.right + 10
-	let top = rect.top
+	let left = event.clientX + 10
+	let top = event.clientY + 10
 	
 	if (left + popoverWidth > window.innerWidth) {
-		left = rect.left - popoverWidth - 10
+		left = event.clientX - popoverWidth - 10
 	}
 	if (top + popoverHeight > window.innerHeight) {
 		top = window.innerHeight - popoverHeight - 20
 	}
 	if (top < 10) top = 10
+	if (left < 10) left = 10
 	
 	popoverStyle.value = {
 		position: 'fixed',
@@ -382,7 +506,7 @@ function getDaysInPeriod() {
     for (let i = 0; i < 7; i++) {
       const date = new Date(weekStart)
       date.setDate(date.getDate() + i)
-      days.push(date.toISOString().split('T')[0])
+      days.push(getLocalDateString(date))
     }
   } else {
     days.push(selectedDate.value)
@@ -415,7 +539,7 @@ function setViewMode(mode) {
     firstDayOfMonth.setHours(0, 0, 0, 0)
     currentWeekStart.value = getWeekStart(firstDayOfMonth)
   } else {
-    selectedDate.value = today.toISOString().split('T')[0]
+    selectedDate.value = getLocalDateString(today)
   }
 }
 
@@ -450,7 +574,7 @@ function previousPeriod() {
   } else if (viewMode.value === 'week') {
     const d = new Date(currentWeekStart.value)
     d.setDate(d.getDate() - 7)
-    currentWeekStart.value = d.toISOString().split('T')[0]
+    currentWeekStart.value = getLocalDateString(d)
     const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
     if (newMonth !== currentMonth.value) {
       currentMonth.value = newMonth
@@ -458,7 +582,7 @@ function previousPeriod() {
   } else {
     const d = new Date(selectedDate.value)
     d.setDate(d.getDate() - 1)
-    selectedDate.value = d.toISOString().split('T')[0]
+    selectedDate.value = getLocalDateString(d)
     const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
     if (newMonth !== currentMonth.value) {
       currentMonth.value = newMonth
@@ -474,7 +598,7 @@ function nextPeriod() {
   } else if (viewMode.value === 'week') {
     const d = new Date(currentWeekStart.value)
     d.setDate(d.getDate() + 7)
-    currentWeekStart.value = d.toISOString().split('T')[0]
+    currentWeekStart.value = getLocalDateString(d)
     const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
     if (newMonth !== currentMonth.value) {
       currentMonth.value = newMonth
@@ -482,7 +606,7 @@ function nextPeriod() {
   } else {
     const d = new Date(selectedDate.value)
     d.setDate(d.getDate() + 1)
-    selectedDate.value = d.toISOString().split('T')[0]
+    selectedDate.value = getLocalDateString(d)
     const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
     if (newMonth !== currentMonth.value) {
       currentMonth.value = newMonth
@@ -586,13 +710,69 @@ function getShiftColor(shift) {
   return {}
 }
 
+function timeToPercent(timeStr, isEnd = false) {
+  if (!timeStr) return isEnd ? 100 : 0
+  const [h, m] = timeStr.split(':').map(Number)
+  if (isEnd && h === 0 && m === 0) return 100
+  return ((h * 60 + m) / (24 * 60)) * 100
+}
+
+function isFullDayShift(statusId) {
+  return ['VACATION', 'SICK_LEAVE'].includes(statusId)
+}
+
+function getShiftBarStyle(shift) {
+  if (!shift) return {}
+  if (isFullDayShift(shift.status)) {
+    return {
+      left: '0%',
+      width: '100%',
+      backgroundColor: getStatusColor(shift.status) || '#cccccc'
+    }
+  }
+  if (!shift.startTime || !shift.endTime) return {}
+  const left = timeToPercent(shift.startTime)
+  const right = timeToPercent(shift.endTime, true)
+  const width = right - left
+  const color = getStatusColor(shift.status)
+  return {
+    left: left + '%',
+    width: Math.max(width, 0) + '%',
+    backgroundColor: color || '#4CAF50'
+  }
+}
+
+function getCoverageCount(hour) {
+  const users = scheduleStore.allSchedule?.userSchedules || []
+  return users.filter((user, userIdx) => {
+    const shift = getShiftForDayWithEdit(userIdx, selectedDate.value)
+    if (!shift || isNonWorkingShift(shift.status)) return false
+    const [startH, startM] = (shift.startTime || '00:00').split(':').map(Number)
+    let [endH, endM] = (shift.endTime || '23:59').split(':').map(Number)
+    if (endH === 0 && endM === 0) {
+      endH = 24
+    }
+    const startMin = startH * 60 + startM
+    const endMin = endH * 60 + endM
+    const hourStart = hour * 60
+    const hourEnd = (hour + 1) * 60
+    return startMin < hourEnd && endMin > hourStart
+  }).length
+}
+
+function getCoverageColor(hour) {
+  const count = getCoverageCount(hour)
+  if (count === 0) return '#ff4444'
+  if (count === 1) return '#ff9800'
+  if (count === 2) return '#ffd54f'
+  return '#a5d6a7'
+}
+
 function closePopover() {
   editingCell.value = null
 }
 
 function getIsCellEdited(userIdx, day) {
-  const key = `${userIdx}-${day}`
-  
   const currentShift = getShiftForDayWithEdit(userIdx, day)
   if (!currentShift) return false
   
@@ -609,7 +789,7 @@ function getIsCellEdited(userIdx, day) {
 }
 
 function handleClickOutside(event) {
-  if (editingCell.value && !event.target.closest('.edit-popover') && !event.target.closest('.cell')) {
+  if (editingCell.value && !event.target.closest('.edit-popover') && !event.target.closest('.cell') && !event.target.closest('.timeline-track')) {
     closePopover()
   }
 }
@@ -1611,6 +1791,252 @@ h1 {
 
   .shift-time {
     font-size: 9px;
+  }
+}
+
+.day-timeline-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  min-height: 200px;
+}
+
+.timeline-scroll-area {
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.timeline-row {
+  display: flex;
+  min-height: 52px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.timeline-row:last-child {
+  border-bottom: none;
+}
+
+.timeline-row-header {
+  width: 130px;
+  min-width: 130px;
+  background: #f9f9f9;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  left: 0;
+  z-index: 9;
+  border-right: 1px solid #e0e0e0;
+  box-sizing: border-box;
+}
+
+.timeline-employee-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.timeline-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: #2c3e50;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-position {
+  font-size: 10px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-track {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  min-height: 52px;
+}
+
+.timeline-header-track {
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.timeline-hour-marker {
+  flex: 1;
+  height: 100%;
+  border-right: 1px solid #f0f0f0;
+  box-sizing: border-box;
+}
+
+.timeline-hour-marker.marker-hour-start {
+  border-right-color: #ddd;
+}
+
+.timeline-bar {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border-radius: 6px;
+  opacity: 0.75;
+  z-index: 5;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  min-width: 4px;
+}
+
+.timeline-bar:hover {
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.timeline-bar-full {
+  opacity: 0.5;
+  border-radius: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    rgba(255, 255, 255, 0.25) 6px,
+    rgba(255, 255, 255, 0.25) 12px
+  );
+}
+
+.timeline-header-row {
+  background: linear-gradient(135deg, #ff9800 0%, #e68900 100%);
+  min-height: 40px;
+  border-bottom: 2px solid #d48000;
+}
+
+.timeline-header-row .timeline-row-header {
+  background: transparent;
+  border-right-color: rgba(255, 255, 255, 0.2);
+}
+
+.timeline-corner-text {
+  font-weight: 700;
+  font-size: 11px;
+  color: white;
+  text-transform: uppercase;
+}
+
+.timeline-hour-header {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 2px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  box-sizing: border-box;
+}
+
+.timeline-hour-header:last-child {
+  border-right: none;
+}
+
+.hour-primary {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3e2723;
+}
+
+.hour-secondary {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(62, 39, 35, 0.45);
+}
+
+.coverage-row {
+  border-top: 2px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.coverage-row .timeline-row-header {
+  background: #f0f0f0;
+}
+
+.timeline-coverage-label {
+  font-weight: 700;
+  font-size: 11px;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coverage-track {
+  gap: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.coverage-cell {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.7);
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  transition: opacity 0.2s;
+  box-sizing: border-box;
+}
+
+.coverage-cell:last-child {
+  border-right: none;
+}
+
+.coverage-count {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.timeline-row .timeline-track {
+  cursor: pointer;
+}
+
+.now-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ff1744;
+  z-index: 15;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 23, 68, 0.5);
+}
+
+.timeline-tooltip {
+  position: fixed;
+  transform: translate(10px, -100%);
+  background: #333;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .timeline-row-header {
+    width: 100px;
+    min-width: 100px;
+  }
+  
+  .timeline-name {
+    font-size: 11px;
   }
 }
 </style>
