@@ -31,71 +31,78 @@ onMounted(() => {
 </script>
 
 <style>
+:root {
+  --color-primary: #0066cc;
+  --color-primary-focus: #0071e3;
+  --color-primary-on-dark: #2997ff;
+  --color-ink: #1d1d1f;
+  --color-body: #1d1d1f;
+  --color-body-on-dark: #ffffff;
+  --color-body-muted: #cccccc;
+  --color-ink-muted-80: #333333;
+  --color-ink-muted-48: #7a7a7a;
+  --color-divider-soft: #f0f0f0;
+  --color-hairline: #e0e0e0;
+  --color-canvas: #ffffff;
+  --color-canvas-parchment: #f5f5f7;
+  --color-surface-pearl: #fafafc;
+  --color-surface-tile-1: #272729;
+  --color-surface-tile-2: #2a2a2c;
+  --color-surface-tile-3: #252527;
+  --color-surface-black: #000000;
+  --color-on-primary: #ffffff;
+  --color-on-dark: #ffffff;
+
+  --font-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --rounded-sm: 8px;
+  --rounded-md: 11px;
+  --rounded-lg: 18px;
+  --rounded-pill: 9999px;
+
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px;
+}
 
 body {
-  background: linear-gradient(135deg, #fff4c4, #fff3c0, #fcefb9);
-  background-attachment: fixed;
+  background: var(--color-canvas-parchment);
   margin: 0;
   padding: 0;
-  height: 100%;
-  font-family: 'Roboto', sans-serif;
+  min-height: 100vh;
+  font-family: var(--font-body);
   font-weight: 400;
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  color: var(--color-body);
   overflow-x: hidden;
-  position: relative;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: 
-    radial-gradient(circle at 20% 50%, rgba(255, 152, 0, 0.04) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 152, 0, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 50% 80%, rgba(255, 193, 7, 0.03) 0%, transparent 50%);
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ff9800' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='1.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
-  position: relative;
-  z-index: 1;
+  min-height: 100vh;
 }
 
 * {
   box-sizing: border-box;
 }
 
+.my-app-dark {
+  --color-canvas-parchment: #1d1d1f;
+  --color-canvas: #2a2a2c;
+  --color-ink: #f5f5f7;
+  --color-body: #f5f5f7;
+  --color-surface-pearl: #333333;
+  --color-hairline: #444444;
+  --color-divider-soft: #333333;
+  --color-ink-muted-80: #cccccc;
+  --color-ink-muted-48: #888888;
+}
+
 .my-app-dark body {
-  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460) !important;
-}
-
-.my-app-dark .headbar {
-  background: #1e1e2f !important;
-  border-bottom-color: rgba(255,255,255,0.1) !important;
-}
-
-.my-app-dark .headbar-btn {
-  color: #ccc !important;
-  border-color: #444 !important;
-}
-
-.my-app-dark .headbar-btn:hover {
-  border-color: #ff9800 !important;
-  color: #ff9800 !important;
-}
-
-.my-app-dark .headbar-btn-logout {
-  border-color: #ff9800 !important;
-  color: #ff9800 !important;
+  background: var(--color-surface-tile-1) !important;
+  color: var(--color-body-on-dark) !important;
 }
 
 @media print {
@@ -122,10 +129,13 @@ body::after {
 
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.374px;
+  color: var(--color-ink);
 }
 
 p {
   margin: 0;
 }
-
 </style>

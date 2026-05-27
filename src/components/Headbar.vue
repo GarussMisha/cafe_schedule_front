@@ -1,23 +1,28 @@
 <template>
     <header class="headbar">
         <div class="headbar-container">
-            <div class="headbar-buttons">
-                <button v-if="!isHomePage" @click="goHome" class="headbar-btn" type="button">
-                    <i class="pi pi-home"></i> Главная
-                </button>
-                <button v-if="userStore.isAdmin && !isAdminPage" @click="goAdminPanel" class="headbar-btn" type="button">
-                    <i class="pi pi-cog"></i> Админка
-                </button>
-                <button v-if="!isHomePage" @click="goBack" class="headbar-btn" type="button">
-                    <i class="pi pi-arrow-left"></i> Назад
-                </button>
-                <button @click="toggleDarkMode" class="headbar-btn" type="button" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
-                    <i :class="['pi', isDark ? 'pi-sun' : 'pi-moon']"></i>
+            <div class="headbar-left">
+                <button v-if="!isHomePage" @click="goHome" class="headbar-logo" type="button" title="Главная">
+                    <i class="pi pi-calendar"></i>
                 </button>
             </div>
-            <button @click="logout" class="headbar-btn headbar-btn-logout" type="button">
-                <i class="pi pi-sign-out"></i> Выход
-            </button>
+            <div class="headbar-center">
+                <span class="headbar-title">Cafe Schedule</span>
+            </div>
+            <div class="headbar-right">
+                <button v-if="!isHomePage && !isAdminPage" @click="goBack" class="headbar-btn" type="button">
+                    <i class="pi pi-chevron-left"></i> Назад
+                </button>
+                <button v-if="userStore.isAdmin && !isAdminPage" @click="goAdminPanel" class="headbar-btn" type="button">
+                    <i class="pi pi-cog"></i>
+                </button>
+                <button @click="toggleDarkMode" class="headbar-btn headbar-icon-btn" type="button" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
+                    <i :class="['pi', isDark ? 'pi-sun' : 'pi-moon']"></i>
+                </button>
+                <button @click="logout" class="headbar-btn headbar-btn-logout" type="button">
+                    Выход
+                </button>
+            </div>
         </div>
     </header>
 </template>
@@ -61,81 +66,107 @@ function goHome () {
 </script>
 
 <style scoped>
-
 .headbar {
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 12px 20px;
-  background: #ffffff;
-  backdrop-filter: blur(30px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  height: 44px;
+  background: var(--color-surface-black);
+  backdrop-filter: saturate(180%) blur(20px);
 }
 
 .headbar-container {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
-  max-width: 1400px;
-  margin: 0 auto;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 20px;
+  position: relative;
 }
 
-.headbar-buttons {
+.headbar-left {
   display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 6px;
+}
+
+.headbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.headbar-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.12px;
+  color: var(--color-body-on-dark);
+  opacity: 0.8;
+}
+
+.headbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .headbar-btn {
-  border-radius: 20px !important;
-  font-weight: 400 !important;
-  font-size: 0.9rem !important;
-  padding: 8px 20px !important;
-  background: transparent !important;
-  color: #1a1a1a !important;
-  border: 1.5px solid #e0e0e0 !important;
-  transition: all 0.3s ease !important;
-  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--rounded-sm);
+  background: transparent;
+  color: var(--color-body-on-dark);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  opacity: 0.65;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
 }
 
 .headbar-btn:hover {
-  border-color: #ff9800 !important;
-  color: #ff9800 !important;
-  background: rgba(255, 152, 0, 0.05) !important;
-  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.headbar-btn:active {
+  transform: scale(0.95);
+}
+
+.headbar-icon-btn {
+  padding: 4px;
+  font-size: 14px;
+}
+
+.headbar-logo {
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-body-on-dark);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.headbar-logo:hover {
+  opacity: 1;
 }
 
 .headbar-btn-logout {
-  background: transparent !important;
-  color: #ff9800 !important;
-  border: 1.5px solid #ff9800 !important;
-  font-weight: 400 !important;
-  font-size: 0.9rem !important;
-  padding: 8px 20px !important;
-  border-radius: 20px !important;
-  letter-spacing: 0.02em;
+  color: var(--color-primary-on-dark);
+  opacity: 0.85;
 }
 
 .headbar-btn-logout:hover {
-  background: rgba(255, 152, 0, 0.1) !important;
-  color: #e68900 !important;
-  border-color: #e68900 !important;
+  opacity: 1;
 }
-
-@media (max-width: 768px) {
-  .headbar {
-    padding: 10px 15px;
-  }
-  
-  .headbar-container {
-    gap: 6px;
-  }
-  
-  .headbar-buttons {
-    gap: 6px;
-  }
-}
-
 </style>

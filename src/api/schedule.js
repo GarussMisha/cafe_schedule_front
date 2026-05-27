@@ -38,9 +38,13 @@ export async function createMySchedule(scheduleData) {
 }
 
 // 4. Внесение изменений в расписание по текущему пользователю
-export async function updateMySchedule(month, scheduleData) {
+export async function updateMySchedule(month, scheduleData, cafeId) {
     try {
-        const response = await apiClient.post('/schedule/my', scheduleData, {
+        const payload = {
+            cafeId,
+            shifts: scheduleData.shifts || scheduleData
+        };
+        const response = await apiClient.post('/schedule/my', payload, {
             params: { month }
         });
         return response.data;

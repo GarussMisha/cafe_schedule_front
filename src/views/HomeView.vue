@@ -1,135 +1,91 @@
 <template>
   <main class="home">
-    <div class="greeting-section" style="animation-delay: 0.05s">
-      <span class="greeting-emoji">{{ greetingEmoji }}</span>
-      <div class="greeting-text">
-        <h1 class="greeting-title">{{ greetingText }}, <span class="greeting-name">{{ userName }}</span></h1>
-        <p class="greeting-sub">{{ currentDateStr }}</p>
+    <section class="hero-tile">
+      <div class="tile-content">
+        <span class="hero-emoji">{{ greetingEmoji }}</span>
+        <h1 class="hero-title">{{ greetingText }}, <span class="hero-name">{{ userName }}</span></h1>
+        <p class="hero-sub">{{ currentDateStr }}</p>
       </div>
-    </div>
+    </section>
 
-    <div class="stats-row" style="animation-delay: 0.15s">
-      <div class="stat-card">
-        <div class="stat-icon"><i class="pi pi-users"></i></div>
-        <div class="stat-info">
-          <span class="stat-value">{{ stats.employees }}</span>
-          <span class="stat-label">Сотрудников</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon"><i class="pi pi-calendar"></i></div>
-        <div class="stat-info">
-          <span class="stat-value">{{ stats.scheduleStatus }}</span>
-          <span class="stat-label">Расписание</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon"><i class="pi pi-clock"></i></div>
-        <div class="stat-info">
-          <span class="stat-value">{{ stats.upcoming }}</span>
-          <span class="stat-label">Ближайшая смена</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon"><i class="pi pi-star"></i></div>
-        <div class="stat-info">
-          <span class="stat-value">{{ stats.role }}</span>
-          <span class="stat-label">Должность</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="welcome-card" style="animation-delay: 0.25s">
-      <div class="card-accent"></div>
-      <div class="card-body">
-        <div class="card-header">
-          <div class="card-icon-wrapper">
-            <i class="pi pi-home"></i>
+    <section class="stats-tile">
+      <div class="tile-content">
+        <div class="stats-grid">
+          <div class="stat-item" v-for="s in statList" :key="s.label">
+            <span class="stat-value">{{ s.value }}</span>
+            <span class="stat-label">{{ s.label }}</span>
           </div>
-          <h1 class="card-title">Главная</h1>
         </div>
-        <p class="welcome-text">
-          Добро пожаловать в систему управления расписанием сотрудников!
-        </p>
-        <p class="card-desc">
-          Здесь будет отображаться статистика и персональные данные пользователя
-        </p>
-        <div class="btn-container" v-if="!userStore.isAdmin">
-          <button class="action-btn pulse-btn" @click="goSchedule" type="button">
-            <i class="pi pi-calendar"></i> Таблица расписания
+      </div>
+    </section>
+
+    <section class="action-tile" v-if="!userStore.isAdmin">
+      <div class="tile-content tile-content-compact">
+        <h2 class="tile-heading">Расписание</h2>
+        <p class="tile-text">Просмотр и редактирование графика работы</p>
+        <div class="cta-group">
+          <button @click="goSchedule" class="btn-primary-pill" type="button">
+            Таблица расписания
           </button>
-          <button class="action-btn pulse-btn" @click="goProfile" type="button">
-            <i class="pi pi-user"></i> Профиль
+          <button @click="goProfile" class="btn-secondary-pill" type="button">
+            Мой профиль
           </button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="feed-container" style="animation-delay: 0.35s">
-      <section class="feed-card">
-        <div class="card-accent"></div>
-        <div class="card-body">
-          <h2 class="feed-title">
-            <i class="pi pi-bell feed-icon"></i>
-            Новости предприятия
-          </h2>
-          <div class="news-item" v-for="news in newsList" :key="news.id">
-            <h3 class="news-title">{{ news.title }}</h3>
-            <p class="news-date">{{ news.date }}</p>
-            <p class="news-content">{{ news.content }}</p>
+    <section class="feed-tile">
+      <div class="tile-content">
+        <div class="feed-grid">
+          <div class="feed-section">
+            <h2 class="tile-heading">Новости</h2>
+            <div class="feed-list">
+              <div class="feed-item" v-for="news in newsList" :key="news.id">
+                <div class="feed-meta">
+                  <span class="feed-item-title">{{ news.title }}</span>
+                  <span class="feed-date">{{ news.date }}</span>
+                </div>
+                <p class="feed-text">{{ news.content }}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <section class="feed-card">
-        <div class="card-accent"></div>
-        <div class="card-body">
-          <h2 class="feed-title">
-            <i class="pi pi-exclamation-circle feed-icon"></i>
-            Уведомления
-          </h2>
-          <div class="notification-item">
-            <p class="notification-hint">Здесь будут отображаться уведомления.</p>
-            <div class="news-item" v-for="notification in notificationsList" :key="notification.id">
-              <h3 class="news-title">{{ notification.title }}</h3>
-              <p class="news-date">{{ notification.date }}</p>
-              <p class="news-content">{{ notification.content }}</p>
+          <div class="feed-section">
+            <h2 class="tile-heading">Уведомления</h2>
+            <div class="feed-list">
+              <div class="feed-item" v-for="notif in notificationsList" :key="notif.id">
+                <div class="feed-meta">
+                  <span class="feed-item-title">{{ notif.title }}</span>
+                  <span class="feed-date">{{ notif.date }}</span>
+                </div>
+                <p class="feed-text">{{ notif.content }}</p>
+              </div>
             </div>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
 
-    <section class="instructions-card" style="animation-delay: 0.45s">
-      <div class="card-accent"></div>
-      <div class="card-body">
-        <h2 class="instructions-title">
-          <i class="pi pi-info-circle feed-icon"></i>
-          Инструкция по пользованию
-        </h2>
-        <details>
+    <section class="instructions-tile">
+      <div class="tile-content tile-content-compact">
+        <h2 class="tile-heading">Инструкция</h2>
+        <details class="instruction-details">
           <summary>Как пользоваться системой</summary>
           <ol>
             <li>Для составления расписания перейдите в Профиль.</li>
-            <li>Что бы посмотреть общее расписание перейдите в "Таблица расписания".</li>
+            <li>Чтобы посмотреть общее расписание перейдите в "Таблица расписания".</li>
           </ol>
         </details>
       </div>
     </section>
 
-    <div class="footer-decoration" style="animation-delay: 0.55s">
-      <span class="deco-dot"></span>
-      <span class="deco-dot"></span>
-      <span class="deco-dot"></span>
-    </div>
-
-    <div v-if="!userStore.currentUser" class="login-prompt">
-      <div class="login-prompt-icon"><i class="pi pi-exclamation-circle"></i></div>
-      <p class="login-prompt-title">Пользователь не авторизован</p>
-      <p class="login-prompt-desc">Для просмотра расписания необходимо войти в систему.</p>
-      <button @click="router.push('/login')" class="login-prompt-btn" type="button">
-        Перейти к авторизации
-      </button>
+    <div v-if="!userStore.currentUser" class="login-prompt-tile">
+      <div class="tile-content tile-content-compact">
+        <p class="prompt-title">Пользователь не авторизован</p>
+        <p class="prompt-desc">Для просмотра расписания необходимо войти в систему.</p>
+        <button @click="router.push('/login')" class="btn-primary-pill" type="button">
+          Войти
+        </button>
+      </div>
     </div>
   </main>
 </template>
@@ -137,7 +93,7 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -181,21 +137,18 @@ const currentDateStr = computed(() => {
   return `${d.getDate()} ${months[d.getMonth()]}, ${days[d.getDay()]}`
 })
 
+const statList = computed(() => [
+  { value: userStore.allUsers?.length || 0, label: 'Сотрудников' },
+  { value: userStore.allUsers?.length > 0 ? 'Активно' : '—', label: 'Расписание' },
+  { value: '—', label: 'Ближайшая смена' },
+  { value: roleLabel.value, label: 'Должность' }
+])
+
 const roleLabel = computed(() => {
   if (userStore.isAdmin) return 'Админ'
   if (userStore.isManager) return 'Менеджер'
   if (userStore.isEmployee) return 'Сотрудник'
   return '—'
-})
-
-const stats = computed(() => {
-  const employees = userStore.allUsers?.length || 0
-  return {
-    employees,
-    scheduleStatus: employees > 0 ? 'Активно' : '—',
-    upcoming: '—',
-    role: roleLabel.value
-  }
 })
 
 function goSchedule(){
@@ -211,537 +164,330 @@ function goProfile(){
 .home {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  width: 100%;
-  gap: 12px;
-  padding: 16px 20px 20px;
-  min-height: calc(100vh - 60px);
-  box-sizing: border-box;
-  animation: pageEnter 0.6s ease-out both;
 }
 
-@keyframes pageEnter {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.hero-tile {
+  background: var(--color-surface-black);
+  padding: 32px 20px 24px;
+  text-align: center;
 }
 
-/* --- GREETING --- */
-.greeting-section {
-  width: 100%;
-  max-width: 1120px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 24px;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-  animation: fadeInUp 0.6s ease-out both;
+.hero-emoji {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
 }
 
-.greeting-emoji {
-  font-size: 2rem;
-  line-height: 1;
-  animation: gentleBob 3s ease-in-out infinite;
+.hero-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--color-body-on-dark);
 }
 
-@keyframes gentleBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+.hero-name {
+  color: var(--color-primary-on-dark);
 }
 
-.greeting-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0;
+.hero-sub {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.19;
+  letter-spacing: 0.231px;
+  color: var(--color-body-muted);
+  margin-top: 4px;
 }
 
-.greeting-name {
-  background: linear-gradient(135deg, #ff9800, #e68900);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.stats-tile {
+  background: var(--color-canvas);
+  padding: 20px 20px 16px;
 }
 
-.greeting-sub {
-  margin: 2px 0 0;
-  font-size: 0.78rem;
-  color: #888;
-}
-
-/* --- STATS ROW --- */
-.stats-row {
-  width: 100%;
-  max-width: 1120px;
+.stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-.stat-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  border-radius: 14px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  cursor: default;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(255, 152, 0, 0.15);
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.stat-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(255, 152, 0, 0.12), rgba(255, 152, 0, 0.06));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  color: #ff9800;
-  flex-shrink: 0;
-  transition: all 0.3s ease;
-}
-
-.stat-card:hover .stat-icon {
-  background: linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 152, 0, 0.1));
-  transform: scale(1.05);
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
   gap: 1px;
+  max-width: 980px;
+  margin: 0 auto;
+  background: var(--color-hairline);
+}
+
+.stat-item {
+  background: var(--color-canvas);
+  padding: 12px 16px;
+  text-align: center;
 }
 
 .stat-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1.2;
+  display: block;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--color-ink);
+  margin-bottom: 2px;
 }
 
 .stat-label {
-  font-size: 0.7rem;
-  color: #999;
+  font-size: 14px;
   font-weight: 400;
+  line-height: 1.43;
+  letter-spacing: -0.224px;
+  color: var(--color-ink-muted-48);
 }
 
-/* --- CARDS (unified card look) --- */
-.welcome-card,
-.feed-card,
-.instructions-card {
-  width: 100%;
-  max-width: 1120px;
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-.welcome-card:hover,
-.feed-card:hover,
-.instructions-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-}
-
-.card-accent {
-  height: 3px;
-  background: linear-gradient(90deg, #ff9800, #ffb74d, #ff9800);
-  background-size: 200% 100%;
-  animation: shimmer 3s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-.card-body {
-  padding: 18px 24px;
-}
-
-.card-header {
-  text-align: center;
-  margin-bottom: 0.6rem;
-}
-
-.card-icon-wrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(255, 152, 0, 0.12), rgba(255, 152, 0, 0.06));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
-  color: #ff9800;
-  margin-bottom: 6px;
-  transition: all 0.3s ease;
-}
-
-.welcome-card:hover .card-icon-wrapper {
-  transform: scale(1.08) rotate(-4deg);
-  background: linear-gradient(135deg, rgba(255, 152, 0, 0.18), rgba(255, 152, 0, 0.08));
-}
-
-.card-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.welcome-text {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 4px;
+.action-tile {
+  background: var(--color-canvas-parchment);
+  padding: 20px 20px 24px;
   text-align: center;
 }
 
-.card-desc {
-  font-size: 13px;
-  color: #888;
-  margin-bottom: 12px;
-  text-align: center;
+.feed-tile {
+  background: var(--color-canvas);
+  padding: 20px 20px 12px;
 }
 
-/* --- BUTTONS (unchanged style, just animation added) --- */
-.btn-container {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  justify-content: center;
+.feed-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 980px;
+  margin: 0 auto;
 }
 
-.action-btn {
-  min-width: 150px;
-  border-radius: 20px !important;
-  font-weight: 400 !important;
-  font-size: 0.85rem !important;
-  padding: 8px 22px !important;
-  background: transparent !important;
-  color: #ff9800 !important;
-  border: 1.5px solid #ff9800 !important;
-  transition: all 0.3s ease !important;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-
-.action-btn:hover {
-  background: rgba(255, 152, 0, 0.1) !important;
-  color: #e68900 !important;
-  border-color: #e68900 !important;
-  transform: translateY(-1px);
-}
-
-.pulse-btn:active {
-  transform: scale(0.97);
-}
-
-/* --- FEED CARDS --- */
-.feed-container {
-  display: flex;
-  width: 100%;
-  max-width: 1120px;
-  gap: 12px;
-  justify-content: space-between;
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-.feed-card {
-  flex: 1;
+.feed-section {
   min-width: 0;
 }
 
-.feed-title {
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  color: #1a1a1a;
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.feed-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider-soft);
+}
+
+.feed-item:last-child {
+  border-bottom: none;
+}
+
+.feed-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 2px;
 }
 
-.feed-icon {
-  color: #ff9800;
-  font-size: 1rem;
-  transition: transform 0.3s ease;
-}
-
-.feed-card:hover .feed-icon {
-  animation: iconPulse 0.6s ease;
-}
-
-@keyframes iconPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-}
-
-/* --- INSTRUCTIONS --- */
-.instructions-title {
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 6px;
-  color: #1a1a1a;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-details summary {
-  color: #ff9800;
+.feed-item-title {
+  font-family: var(--font-body);
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
+  color: var(--color-primary);
+}
+
+.feed-date {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.12px;
+  color: var(--color-ink-muted-48);
+}
+
+.feed-text {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.43;
+  letter-spacing: -0.224px;
+  color: var(--color-ink-muted-80);
+}
+
+.instructions-tile {
+  background: var(--color-canvas-parchment);
+  padding: 16px 20px 20px;
+}
+
+.tile-content {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.tile-content-compact {
+  text-align: center;
+}
+
+.tile-heading {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: 0.196px;
+  color: var(--color-ink);
+}
+
+.tile-text {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  color: var(--color-ink-muted-48);
+  margin-top: 4px;
+}
+
+.cta-group {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.btn-primary-pill {
+  padding: 11px 22px;
+  border: none;
+  border-radius: var(--rounded-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.374px;
   cursor: pointer;
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: rgba(255, 152, 0, 0.06);
-  font-size: 13px;
-  transition: all 0.3s ease;
+  transition: opacity 0.2s;
+}
+
+.btn-primary-pill:hover {
+  opacity: 0.85;
+}
+
+.btn-primary-pill:active {
+  transform: scale(0.95);
+}
+
+.btn-secondary-pill {
+  padding: 11px 22px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--rounded-pill);
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.374px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-secondary-pill:hover {
+  opacity: 0.7;
+}
+
+.btn-secondary-pill:active {
+  transform: scale(0.95);
+}
+
+.instruction-details {
+  margin-top: 8px;
+  text-align: left;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.instruction-details summary {
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: -0.374px;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 8px 0;
   list-style: none;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-details summary::before {
+.instruction-details summary::before {
   content: '▶';
-  font-size: 0.6rem;
-  transition: transform 0.3s ease;
+  font-size: 10px;
+  transition: transform 0.2s;
 }
 
-details[open] summary::before {
+.instruction-details[open] summary::before {
   transform: rotate(90deg);
 }
 
-details summary:hover {
-  background: rgba(255, 152, 0, 0.12);
+.instruction-details ol {
+  padding-left: 20px;
+  margin-top: 8px;
 }
 
-details ol {
-  padding-left: 18px;
-  margin: 6px 0 0;
-}
-
-details li {
+.instruction-details li {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-ink-muted-80);
   margin-bottom: 4px;
-  color: #555;
-  font-size: 13px;
-  line-height: 1.4;
 }
 
-/* --- NEWS / NOTIFICATIONS --- */
-.notification-hint {
-  margin: 3px 0;
-  font-size: 11px;
-  color: #999;
-  font-style: italic;
-}
-
-.notification-item {
-  margin-bottom: 6px;
-  padding-bottom: 6px;
-}
-
-.news-item {
-  margin-bottom: 6px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: all 0.3s ease;
-  padding: 6px 8px;
-  border-radius: 8px;
-  margin-left: -8px;
-  margin-right: -8px;
-  cursor: default;
-}
-
-.news-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.news-item:hover {
-  background: rgba(255, 152, 0, 0.04);
-  padding-left: 12px;
-  border-left: 3px solid #ff9800;
-}
-
-.news-title {
-  margin-bottom: 2px;
-  font-size: 12px;
-  color: #ff9800;
-  font-weight: 600;
-}
-
-.news-date {
-  margin: 2px 0;
-  font-size: 10px;
-  color: #bbb;
-}
-
-.news-content {
-  margin: 2px 0;
-  font-size: 11px;
-  color: #555;
-  line-height: 1.4;
-}
-
-/* --- FOOTER DECORATION --- */
-.footer-decoration {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 0;
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-.deco-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(255, 152, 0, 0.3);
-  transition: all 0.3s ease;
-  cursor: default;
-}
-
-.deco-dot:nth-child(2) {
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 152, 0, 0.2);
-}
-
-/* --- ENTRANCE ANIMATION --- */
-.login-prompt {
-  width: 100%;
-  max-width: 400px;
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-  padding: 40px 24px;
+.login-prompt-tile {
+  background: var(--color-canvas);
+  padding: 64px 20px;
   text-align: center;
-  animation: fadeInUp 0.6s ease-out both;
 }
 
-.login-prompt-icon {
-  font-size: 48px;
-  color: #ff9800;
-  margin-bottom: 16px;
-}
-
-.login-prompt-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a1a1a;
+.prompt-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: 0.196px;
+  color: var(--color-ink);
   margin-bottom: 8px;
 }
 
-.login-prompt-desc {
-  font-size: 14px;
-  color: #888;
+.prompt-desc {
+  font-size: 17px;
+  line-height: 1.47;
+  color: var(--color-ink-muted-48);
   margin-bottom: 24px;
-  line-height: 1.5;
 }
 
-.login-prompt-btn {
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 10px 28px;
-  background: #ff9800;
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.login-prompt-btn:hover {
-  background: #e68900;
-  transform: translateY(-1px);
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 28px;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
-/* --- RESPONSIVE --- */
-@media (max-width: 900px) {
-  .stats-row {
+  .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
 
-@media (max-width: 800px) {
-  .feed-container {
+  .feed-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .cta-group {
     flex-direction: column;
-  }
-
-  .feed-card {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .greeting-section {
-    flex-direction: column;
-    text-align: center;
-    padding: 14px;
-  }
-}
-
-@media (max-width: 600px) {
-  .home {
-    padding: 12px 10px 12px;
-    gap: 8px;
-  }
-
-  .stats-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-
-  .stat-card {
-    padding: 10px 12px;
+    align-items: center;
   }
 
   .stat-value {
-    font-size: 0.95rem;
+    font-size: 24px;
   }
 
-  .card-body {
-    padding: 12px 14px;
-  }
-
-  .card-title {
-    font-size: 1.2rem;
-  }
-
-  .action-btn {
-    width: 100%;
-    min-width: 0;
+  .hero-tile {
+    padding: 20px 16px 16px;
   }
 }
 </style>
