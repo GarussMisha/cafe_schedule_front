@@ -9,7 +9,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     const allSchedule = ref([])
     const statusesSchedule = ref([])
     const scheduleStatus = ref([])
-    const cafeId = ref(1)
+    const cafeId = ref(null)
     const schedulesCache = ref({})
     const allScheduleMonthsKey = ref('')
     
@@ -28,44 +28,6 @@ export const useScheduleStore = defineStore('schedule', () => {
             mySchedule.value = data;
         } catch (error) {
             console.error('Error in fetchMySchedule:', error);
-            throw error;
-        } finally {
-            isLoading.value = false
-        }
-    }
-
-    //2. Получение расписание на указанный месяц(ы) по всем сотрудникам.
-    async function fetchAllSchedule(month = currentMonth.value) {
-        isLoading.value = true
-        try {
-            const months = Array.isArray(month) ? [...month] : [month]
-            const newMonthsKey = months.join('|')
-
-            const results = await Promise.all(
-                months.map(m => getAllSchedule(m, cafeId.value))
-            )
-
-            let cacheUpdated = false
-            months.forEach((m, i) => {
-                const cached = schedulesCache.value[m]
-                const fresh = results[i]
-                if (!cached || JSON.stringify(cached) !== JSON.stringify(fresh)) {
-                    schedulesCache.value[m] = fresh
-                    cacheUpdated = true
-                }
-            })
-
-            const periodChanged = newMonthsKey !== allScheduleMonthsKey.value
-            if (periodChanged || cacheUpdated) {
-                if (months.length === 1) {
-                    allSchedule.value = schedulesCache.value[months[0]]
-                } else {
-                    allSchedule.value = mergeSchedules(months.map(m => schedulesCache.value[m]))
-                }
-                allScheduleMonthsKey.value = newMonthsKey
-            }
-        } catch (error) {
-            console.error('Error in fetchAllSchedule:', error);
             throw error;
         } finally {
             isLoading.value = false

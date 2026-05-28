@@ -71,6 +71,8 @@ export const useUserStore = defineStore('user', () => {
    */
   async function logout() {
     authAPI.logout()
+    currentUser.value = null
+    allUsers.value = []
     router.push('/login')
   }
 

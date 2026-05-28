@@ -8,7 +8,7 @@ export async function login(credentials) {
     
     // Сохраняем токен отдельно (интерцептор использует его)
     localStorage.setItem('token', data.token)
-    localStorage.setItem('roles', data.roles)
+    localStorage.setItem('roles', JSON.stringify(data.roles))
     
     // Возвращаем userData (без token) для store/компонента
     return  {
@@ -40,6 +40,8 @@ export async function getProfile() {
 // 3. Выход из системы
 export function logout() {
   localStorage.removeItem('token')
+  localStorage.removeItem('roles')
+  localStorage.removeItem('currentUser')
 }
 
 // 4. Проверка аутентификации (локально)
@@ -47,9 +49,14 @@ export function isAuthenticated() {
   return !!localStorage.getItem('token')
 }
 
-// 5. Получение роли пользователя
+// 5. Получение роли пользователя (возвращает массив ролей)
 export function getRole() {
-  return localStorage.getItem('roles')
+  const roles = localStorage.getItem('roles')
+  try {
+    return JSON.parse(roles) || []
+  } catch {
+    return roles ? [roles] : []
+  }
 }
 
 // export 

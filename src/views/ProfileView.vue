@@ -68,7 +68,7 @@
             <p class="status-text">
               Статус: <strong>{{ scheduleStore.mySchedule?.approved ? 'Закрыто' : 'Открыто' }}</strong>
             </p>
-            <div class="action-buttons" v-if="!scheduleStore.mySchedule?.approved || userStore.isManager">
+            <div class="action-buttons" v-if="!scheduleStore.mySchedule?.approved">
               <template v-if="!isEditingSchedule">
                 <button @click="startEditing" class="btn-pill" type="button">
                   Редактировать
@@ -154,15 +154,15 @@
         <div class="popover-body">
           <div class="popover-field">
             <label>Начало</label>
-            <input type="time" :value="getPopShift()?.startTime" @input="onPopTime('startTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopShift()?.status)" />
+            <input type="time" :value="getPopoverShift()?.startTime" @input="onPopoverTimeChange('startTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopoverShift()?.status)" />
           </div>
           <div class="popover-field">
             <label>Конец</label>
-            <input type="time" :value="getPopShift()?.endTime" @input="onPopTime('endTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopShift()?.status)" />
+            <input type="time" :value="getPopoverShift()?.endTime" @input="onPopoverTimeChange('endTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopoverShift()?.status)" />
           </div>
           <div class="popover-field">
             <label>Статус</label>
-            <select :value="getPopShift()?.status" @input="onPopStatus($event.target.value)" class="popover-select">
+            <select :value="getPopoverShift()?.status" @input="onPopoverStatusChange($event.target.value)" class="popover-select">
               <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
           </div>
@@ -208,21 +208,39 @@ import { useToast } from 'primevue/usetoast'
 import Skeleton from 'primevue/skeleton'
 import Select from 'primevue/select'
 import { getAllCafes } from '@/api/cafe'
-import { useDarkMode } from '@/composables/useDarkMode'
 import { getDayOfWeekShort, isWeekend, isToday, formatMonth, getPreviousMonth, getNextMonth, formatTime } from '@/utils/schedule'
+import { useScheduleEditor } from '@/composables/useScheduleEditor'
 
 const toast = useToast()
 const userStore = useUserStore()
 const scheduleStore = useScheduleStore()
-const { isDarkMode } = useDarkMode()
+
+const {
+  isEditingSchedule,
+  editingCell,
+  editedShifts,
+  popoverStyle,
+  popoverSnapshot,
+  statusOptions,
+  formatDateDisplay,
+  isNonWorkingShift,
+  getOffColor,
+  getShiftColor,
+  startEditing: editorStartEditing,
+  cancelEditing: editorCancelEditing,
+  openPopover,
+  getPopoverShift,
+  initEditedShift,
+  onPopoverStatusChange,
+  onPopoverTimeChange,
+  closePopover,
+  cancelPopover,
+  finalizeEditing,
+  handleClickOutside,
+  scheduleStatusesFromStore,
+} = useScheduleEditor()
 
 const currentMonth = ref(scheduleStore.currentMonth)
-const isEditingSchedule = ref(false)
-const editingCell = ref(null)
-const editedShifts = ref({})
-const originalSchedule = ref(null)
-const popoverStyle = ref({})
-const popoverSnapshot = ref(null)
 const cafeOptions = ref([])
 const cafesLoading = ref(false)
 const cafeIdInput = ref(scheduleStore.cafeId)
@@ -233,8 +251,6 @@ const userInitials = computed(() => {
   return ((u.firstName?.[0] || '') + (u.lastName?.[0] || '')).toUpperCase() || u.username?.[0]?.toUpperCase() || '?'
 })
 
-const scheduleStatusesFromStore = computed(() => scheduleStore.statusesSchedule)
-
 const days = computed(() => {
   const d = []
   const [y, m] = currentMonth.value.split('-')
@@ -244,8 +260,6 @@ const days = computed(() => {
 })
 
 const gridCols = computed(() => `120px repeat(${days.value.length}, minmax(48px,1fr))`)
-
-const statusOptions = computed(() => (scheduleStore.statusesSchedule || []).map(s => ({ label: `${s.short_name} - ${s.name_rus}`, value: s.id })))
 
 const scheduleStats = computed(() => {
   const u = scheduleStore.mySchedule?.userSchedules?.[0]
@@ -296,57 +310,20 @@ const hourBarPct = computed(() => {
 
 function onCellClick(day, event) {
   if (!isEditingSchedule.value) return
-  const r = event.target.getBoundingClientRect()
-  let l = r.right + 10, t = r.top
-  if (l + 240 > window.innerWidth) l = r.left - 250
-  if (t + 280 > window.innerHeight) t = window.innerHeight - 300
-  if (t < 10) t = 10
-  popoverStyle.value = { position: 'fixed', top: `${t}px`, left: `${l}px`, zIndex: 9999 }
-  editingCell.value = { day, dateDisplay: formatDateDisplay(day) }
   const u = scheduleStore.mySchedule?.userSchedules?.[0]
   const sh = u?.shifts?.find(s => s.date === day)
-  if (!editedShifts.value[day]) editedShifts.value[day] = sh ? { ...sh } : { date: day, startTime: '', endTime: '', status: 'OFF' }
+  openPopover({
+    day,
+    editKey: day,
+    dateDisplay: formatDateDisplay(day),
+    originalShift: sh ? { ...sh } : null,
+  }, event)
+  initEditedShift(day, sh, day)
   popoverSnapshot.value = { ...editedShifts.value[day] }
 }
 
-function formatDateDisplay(d) {
-  const dt = new Date(d)
-  const ms = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек']
-  const wd = ['вс','пн','вт','ср','чт','пт','сб']
-  return `${dt.getDate()} ${ms[dt.getMonth()]} (${wd[dt.getDay()]})`
-}
-
-function getPopShift() {
-  if (!editingCell.value) return null
-  return editedShifts.value[editingCell.value.day] || null
-}
-
-function onPopStatus(val) {
-  if (!editingCell.value) return
-  const day = editingCell.value.day
-  if (!editedShifts.value[day]) {
-    const u = scheduleStore.mySchedule?.userSchedules?.[0]
-    const sh = u?.shifts?.find(s => s.date === day)
-    editedShifts.value[day] = sh ? { ...sh } : { date: day, startTime: '', endTime: '', status: 'OFF' }
-  }
-  editedShifts.value[day].status = val
-  if (isNonWork(val)) { editedShifts.value[day].startTime = ''; editedShifts.value[day].endTime = '' }
-  editedShifts.value[day] = { ...editedShifts.value[day] }
-}
-
-function onPopTime(field, val) {
-  if (!editingCell.value) return
-  const day = editingCell.value.day
-  if (!editedShifts.value[day]) {
-    const u = scheduleStore.mySchedule?.userSchedules?.[0]
-    const sh = u?.shifts?.find(s => s.date === day)
-    editedShifts.value[day] = sh ? { ...sh } : { date: day, startTime: '', endTime: '', status: 'OFF' }
-  }
-  editedShifts.value[day][field] = val
-}
-
 function getShift(day) {
-  if (editingCell.value && editingCell.value.day === day) return getPopShift()
+  if (editingCell.value && editingCell.value.day === day) return getPopoverShift()
   if (editedShifts.value[day]) return editedShifts.value[day]
   const u = scheduleStore.mySchedule?.userSchedules?.[0]
   return u?.shifts?.find(s => s.date === day)
@@ -359,46 +336,18 @@ function getEdited(date) {
   return o || { date, startTime: '', endTime: '', status: 'OFF' }
 }
 
-function getStatusColor(id) { return scheduleStatusesFromStore.value?.find(s => s.id === id)?.color || '#f1f1f1' }
-
-function isNonWork(id) { return ['OFF','VACATION','SICK_LEAVE'].includes(id) }
-
-function offColorDark() { return '#2a2a2c' }
-function offColorLight() { const off=scheduleStatusesFromStore.value?.find(s=>s.id==='OFF'); return off?.color||'#cccccc' }
+function isNonWork(id) { return isNonWorkingShift(id) }
 
 function getCellBg(day) {
   const ed = editedShifts.value[day]
-  if (ed) return shiftColor(ed)
+  if (ed) return getShiftColor(ed)
   const u = scheduleStore.mySchedule?.userSchedules?.[0]
   const sh = u?.shifts?.find(s => s.date === day)
-  if (!sh) { const c = getOffColorHex(); return { backgroundColor: `rgba(${c.r},${c.g},${c.b},1)` } }
-  return shiftColor(sh)
-}
-
-function getOffColorHex() {
-  const isDark = isDarkMode.value
-  if (isDark) { const h='#2a2a2c'.replace('#',''); return { r:parseInt(h.substring(0,2),16), g:parseInt(h.substring(2,4),16), b:parseInt(h.substring(4,6),16) } }
-  const off = scheduleStatusesFromStore.value?.find(s => s.id === 'OFF')
-  const h = (off?.color || '#cccccc').replace('#','')
-  return { r: parseInt(h.substring(0,2),16), g: parseInt(h.substring(2,4),16), b: parseInt(h.substring(4,6),16) }
-}
-
-function shiftColor(sh) {
-  const c = sh.status==='OFF'&&isDarkMode.value ? '#2a2a2c' : getStatusColor(sh.status)
-  if (!c) return {}
-  const a = sh.status === 'OFF' ? 1 : 0.25
-  const h = c.replace('#','')
-  return { backgroundColor: `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${a})` }
-}
-
-function closePopover() { popoverSnapshot.value = null; editingCell.value = null }
-function cancelPopover() {
-  if (popoverSnapshot.value && editingCell.value) editedShifts.value[editingCell.value.day] = { ...popoverSnapshot.value }
-  popoverSnapshot.value = null; editingCell.value = null
-}
-
-function handleClickOutside(e) {
-  if (editingCell.value && !e.target.closest('.edit-popover') && !e.target.closest('.grid-cell')) cancelPopover()
+  if (!sh) {
+    const c = getOffColor().replace('#', '')
+    return { backgroundColor: `rgba(${parseInt(c.substring(0, 2), 16)},${parseInt(c.substring(2, 4), 16)},${parseInt(c.substring(4, 6), 16)},1)` }
+  }
+  return getShiftColor(sh)
 }
 
 function handleKeydown(e) {
@@ -409,19 +358,17 @@ function handleKeydown(e) {
 }
 
 function startEditing() {
-  isEditingSchedule.value = true
-  originalSchedule.value = JSON.parse(JSON.stringify(scheduleStore.mySchedule))
-  editedShifts.value = {}
+  editorStartEditing(scheduleStore.mySchedule)
 }
 
 function cancelEditing() {
-  if (originalSchedule.value) scheduleStore.mySchedule = JSON.parse(JSON.stringify(originalSchedule.value))
-  isEditingSchedule.value = false; editedShifts.value = {}; originalSchedule.value = null
+  const restored = editorCancelEditing()
+  if (restored) scheduleStore.mySchedule = restored
 }
 
 async function saveSchedule() {
   try {
-    const NW = ['OFF','VACATION','SICK_LEAVE']
+    const NW = ['OFF', 'VACATION', 'SICK_LEAVE']
     const u = scheduleStore.mySchedule.userSchedules[0]
     const ex = u.shifts || []
     const exD = new Set(ex.map(s => s.date))
@@ -432,14 +379,14 @@ async function saveSchedule() {
       const sd = ed || exs
       if (!sd) return null
       const nw = NW.includes(sd.status)
-      return { date: sd.date, startTime: nw ? '00:00' : (sd.startTime||'00:00'), endTime: nw ? '23:59' : (sd.endTime||'23:59'), status: sd.status }
+      return { date: sd.date, startTime: nw ? '00:00' : (sd.startTime || '00:00'), endTime: nw ? '23:59' : (sd.endTime || '23:59'), status: sd.status }
     }).filter(Boolean)
     await scheduleStore.updateMySchedule(currentMonth.value, data)
-    editedShifts.value = {}; originalSchedule.value = null; isEditingSchedule.value = false
+    finalizeEditing()
     await loadSchedule()
-    toast.add({ severity:'success', summary:'Успех', detail:'Расписание сохранено!', life:3000 })
+    toast.add({ severity: 'success', summary: 'Успех', detail: 'Расписание сохранено!', life: 3000 })
   } catch {
-    toast.add({ severity:'error', summary:'Ошибка', detail:'Ошибка при сохранении', life:5000 })
+    toast.add({ severity: 'error', summary: 'Ошибка', detail: 'Ошибка при сохранении', life: 5000 })
   }
 }
 
@@ -460,8 +407,9 @@ async function loadSchedule() {
   try { await scheduleStore.fetchMySchedule(currentMonth.value) } catch (_e) { console.error('Schedule load error:', _e) }
 }
 
-async function previousMonth() { currentMonth.value = getPreviousMonth(currentMonth.value); scheduleStore.currentMonth = currentMonth.value; await loadSchedule() }
-async function nextMonth() { currentMonth.value = getNextMonth(currentMonth.value); scheduleStore.currentMonth = currentMonth.value; await loadSchedule() }
+async function previousMonth() { currentMonth.value = getPreviousMonth(currentMonth.value); scheduleStore.currentMonth = currentMonth.value; cancelEditing(); await loadSchedule() }
+
+async function nextMonth() { currentMonth.value = getNextMonth(currentMonth.value); scheduleStore.currentMonth = currentMonth.value; cancelEditing(); await loadSchedule() }
 
 async function applyCafeId() {
   if (!cafeIdInput.value) return
@@ -502,7 +450,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside); document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 

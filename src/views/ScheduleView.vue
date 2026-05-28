@@ -177,14 +177,40 @@ import Skeleton from 'primevue/skeleton'
 import Select from 'primevue/select'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { getAllCafes } from '@/api/cafe'
-import { useDarkMode } from '@/composables/useDarkMode'
 import { getDayOfWeekShort, isWeekend, isToday, getPreviousMonth, getNextMonth, formatTime } from '@/utils/schedule'
 import AddEmployeeModal from '@/components/modal/schedule/AddEmployeeModal.vue'
+import { useScheduleEditor } from '@/composables/useScheduleEditor'
 
 const toast = useToast()
+const confirm = useConfirm()
 const userStore = useUserStore()
 const scheduleStore = useScheduleStore()
-const { isDarkMode } = useDarkMode()
+
+const {
+  isEditingSchedule,
+  editingCell,
+  editedShifts,
+  popoverStyle,
+  popoverSnapshot,
+  statusOptions,
+  formatDateDisplay,
+  getStatusColor,
+  isNonWorkingShift,
+  getOffColor,
+  getShiftColor,
+  startEditing: editorStartEditing,
+  cancelEditing: editorCancelEditing,
+  openPopover,
+  getPopoverShift,
+  initEditedShift,
+  onPopoverStatusChange,
+  onPopoverTimeChange,
+  closePopover,
+  cancelPopover,
+  finalizeEditing,
+  handleClickOutside,
+  scheduleStatusesFromStore,
+} = useScheduleEditor()
 
 const cafeIdInput = ref(scheduleStore.cafeId)
 const scheduleError = ref('')
@@ -192,189 +218,264 @@ const cafeOptions = ref([])
 const cafesLoading = ref(false)
 
 const viewMode = ref('month')
+
 function getLocalDateString(date) {
-  const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0')
+  const y = date.getFullYear(),
+    m = String(date.getMonth() + 1).padStart(2, '0'),
+    d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
 const selectedDate = ref(getLocalDateString(new Date()))
 const currentMonth = ref(scheduleStore.currentMonth)
 const currentWeekStart = ref('')
 const currentUserId = computed(() => userStore.currentUser?.id)
-const isEditingSchedule = ref(false)
 const showAddEmployeeModal = ref(false)
-const editingCell = ref(null)
-const editedShifts = ref({})
-const originalSchedule = ref(null)
-const popoverStyle = ref({ position: 'fixed', zIndex: 9999 })
-const popoverSnapshot = ref(null)
 const isScheduleEmpty = computed(() => !scheduleStore.allSchedule?.userSchedules?.length)
-const scheduleStatusesFromStore = computed(() => scheduleStore.statusesSchedule)
 const daysCount = computed(() => getDaysInPeriod().length)
 const gridTemplateCols = computed(() => `120px repeat(${daysCount.value || 1}, minmax(48px,1fr))`)
-const statusOptions = computed(() => (scheduleStore.statusesSchedule || []).map(s => ({ label: `${s.short_name} - ${s.name_rus}`, value: s.id })))
-const currentTimePercent = computed(() => { const n = new Date(); return ((n.getHours()*60+n.getMinutes())/(24*60))*100 })
+const currentTimePercent = computed(() => { const n = new Date(); return ((n.getHours() * 60 + n.getMinutes()) / (24 * 60)) * 100 })
 const showNowIndicator = computed(() => isToday(selectedDate.value))
 const tooltip = ref({ show: false, text: '', x: 0, y: 0 })
 
 function getStatusName(shift) { const s = scheduleStore.statusesSchedule?.find(x => x.id === shift.status); return s?.name_rus || shift.status }
+
 function onBarEnter(uIdx, e) {
   const sh = getShiftForDayWithEdit(uIdx, selectedDate.value)
   if (sh) tooltip.value = { show: true, text: isFullDayShift(sh.status) ? getStatusName(sh) : `${formatTime(sh.startTime)} — ${formatTime(sh.endTime)}`, x: e.clientX, y: e.clientY }
 }
+
 function onBarMove(e) { if (tooltip.value.show) { tooltip.value.x = e.clientX; tooltip.value.y = e.clientY } }
+
 function onBarLeave() { tooltip.value.show = false }
 
 function onCellClick(uIdx, day, e) {
   if (!isEditingSchedule.value) return
-  let l = e.clientX + 10, t = e.clientY + 10
-  if (l + 240 > window.innerWidth) l = e.clientX - 250
-  if (t + 280 > window.innerHeight) t = window.innerHeight - 300
-  if (t < 10) t = 10; if (l < 10) l = 10
-  popoverStyle.value = { position: 'fixed', top: `${t}px`, left: `${l}px`, zIndex: 9999 }
-  editingCell.value = { userIdx: uIdx, day, dateDisplay: formatDateDisplay(day) }
-  const key = `${uIdx}-${day}`, u = scheduleStore.allSchedule?.userSchedules?.[uIdx], sh = u?.shifts?.find(s => s.date === day)
-  if (!editedShifts.value[key]) editedShifts.value[key] = sh ? { ...sh } : { date: day, startTime: '', endTime: '', status: 'OFF' }
+  const key = `${uIdx}-${day}`
+  const u = scheduleStore.allSchedule?.userSchedules?.[uIdx]
+  const sh = u?.shifts?.find(s => s.date === day)
+  openPopover({
+    userIdx: uIdx,
+    day,
+    editKey: key,
+    dateDisplay: formatDateDisplay(day),
+    originalShift: sh ? { ...sh } : null,
+  }, e)
+  initEditedShift(key, sh, day)
   popoverSnapshot.value = { ...editedShifts.value[key] }
 }
 
-const formatDateDisplay = (d) => { const dt = new Date(d); return `${dt.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][dt.getMonth()]} (${['вс','пн','вт','ср','чт','пт','сб'][dt.getDay()]})` }
-function getPopoverShift() { if (!editingCell.value) return null; return editedShifts.value[`${editingCell.value.userIdx}-${editingCell.value.day}`] || null }
-function onPopoverStatusChange(v) {
-  if (!editingCell.value) return
-  const key = `${editingCell.value.userIdx}-${editingCell.value.day}`
-  if (!editedShifts.value[key]) { const u = scheduleStore.allSchedule?.userSchedules?.[editingCell.value.userIdx], sh = u?.shifts?.find(s => s.date === editingCell.value.day); editedShifts.value[key] = sh ? { ...sh } : { date: editingCell.value.day, startTime: '', endTime: '', status: 'OFF' } }
-  editedShifts.value[key].status = v
-  if (isNonWorkingShift(v)) { editedShifts.value[key].startTime = ''; editedShifts.value[key].endTime = '' }
-  editedShifts.value[key] = { ...editedShifts.value[key] }
-}
-function onPopoverTimeChange(field, v) {
-  if (!editingCell.value) return
-  const key = `${editingCell.value.userIdx}-${editingCell.value.day}`
-  if (!editedShifts.value[key]) { const u = scheduleStore.allSchedule?.userSchedules?.[editingCell.value.userIdx], sh = u?.shifts?.find(s => s.date === editingCell.value.day); editedShifts.value[key] = sh ? { ...sh } : { date: editingCell.value.day, startTime: '', endTime: '', status: 'OFF' } }
-  editedShifts.value[key][field] = v
-}
 function getDaysInPeriod() {
   const d = []
-  if (viewMode.value === 'month') { const [y,m] = currentMonth.value.split('-'); const cnt = new Date(parseInt(y),parseInt(m),0).getDate(); for (let i=1;i<=cnt;i++) d.push(`${y}-${m}-${String(i).padStart(2,'0')}`) }
-  else if (viewMode.value === 'week') { const ws = new Date(currentWeekStart.value); for (let i=0;i<7;i++) { const dt = new Date(ws); dt.setDate(dt.getDate()+i); d.push(getLocalDateString(dt)) } }
+  if (viewMode.value === 'month') { const [y, m] = currentMonth.value.split('-'); const cnt = new Date(parseInt(y), parseInt(m), 0).getDate(); for (let i = 1; i <= cnt; i++) d.push(`${y}-${m}-${String(i).padStart(2, '0')}`) }
+  else if (viewMode.value === 'week') { const ws = new Date(currentWeekStart.value); for (let i = 0; i < 7; i++) { const dt = new Date(ws); dt.setDate(dt.getDate() + i); d.push(getLocalDateString(dt)) } }
   else d.push(selectedDate.value)
   return d
 }
-function getWeekStart(ds) { const d = new Date(ds); d.setHours(0,0,0,0); const day = d.getDay(); const toMon = day===0 ? -6 : 1-day; const m = new Date(d); m.setDate(m.getDate()+toMon); return `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}-${String(m.getDate()).padStart(2,'0')}` }
+
+function getWeekStart(ds) { const d = new Date(ds); d.setHours(0, 0, 0, 0); const day = d.getDay(); const toMon = day === 0 ? -6 : 1 - day; const m = new Date(d); m.setDate(m.getDate() + toMon); return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-${String(m.getDate()).padStart(2, '0')}` }
+
 function setViewMode(m) {
-  viewMode.value = m; const t = new Date(); t.setHours(0,0,0,0)
-  if (m==='month') currentMonth.value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-01`
-  else if (m==='week') currentWeekStart.value = getWeekStart(new Date(currentMonth.value))
+  viewMode.value = m; const t = new Date(); t.setHours(0, 0, 0, 0)
+  if (m === 'month') currentMonth.value = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`
+  else if (m === 'week') currentWeekStart.value = getWeekStart(new Date(currentMonth.value))
   else selectedDate.value = getLocalDateString(t)
 }
+
 function getPeriodTitle() {
-  if (viewMode.value==='month') { const [y,m] = currentMonth.value.split('-'); return `${['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][parseInt(m)-1]} ${y}` }
-  else if (viewMode.value==='week') { const s=new Date(currentWeekStart.value), e=new Date(s); e.setDate(e.getDate()+6); return `${s.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][s.getMonth()]} — ${e.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][e.getMonth()]}` }
-  else { const d=new Date(selectedDate.value); return `${d.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][d.getMonth()]}, ${['пн','вт','ср','чт','пт','сб','вс'][(d.getDay()+6)%7]}` }
+  if (viewMode.value === 'month') { const [y, m] = currentMonth.value.split('-'); return `${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][parseInt(m) - 1]} ${y}` }
+  else if (viewMode.value === 'week') { const s = new Date(currentWeekStart.value), e = new Date(s); e.setDate(e.getDate() + 6); return `${s.getDate()} ${['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][s.getMonth()]} — ${e.getDate()} ${['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][e.getMonth()]}` }
+  else { const d = new Date(selectedDate.value); return `${d.getDate()} ${['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()]}, ${['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'][(d.getDay() + 6) % 7]}` }
 }
-function getViewLabel(v) { return { month:'Месяц', week:'Неделя', day:'День' }[v] }
+
+function getViewLabel(v) { return { month: 'Месяц', week: 'Неделя', day: 'День' }[v] }
+
 function previousPeriod() {
-  if (viewMode.value==='month') currentMonth.value = getPreviousMonth(currentMonth.value)
-  else if (viewMode.value==='week') { const d=new Date(currentWeekStart.value); d.setDate(d.getDate()-7); currentWeekStart.value=getLocalDateString(d) }
-  else { const d=new Date(selectedDate.value); d.setDate(d.getDate()-1); selectedDate.value=getLocalDateString(d) }
+  if (viewMode.value === 'month') currentMonth.value = getPreviousMonth(currentMonth.value)
+  else if (viewMode.value === 'week') { const d = new Date(currentWeekStart.value); d.setDate(d.getDate() - 7); currentWeekStart.value = getLocalDateString(d) }
+  else { const d = new Date(selectedDate.value); d.setDate(d.getDate() - 1); selectedDate.value = getLocalDateString(d) }
   cancelEditing(); loadSchedule()
 }
+
 function nextPeriod() {
-  if (viewMode.value==='month') currentMonth.value = getNextMonth(currentMonth.value)
-  else if (viewMode.value==='week') { const d=new Date(currentWeekStart.value); d.setDate(d.getDate()+7); currentWeekStart.value=getLocalDateString(d) }
-  else { const d=new Date(selectedDate.value); d.setDate(d.getDate()+1); selectedDate.value=getLocalDateString(d) }
+  if (viewMode.value === 'month') currentMonth.value = getNextMonth(currentMonth.value)
+  else if (viewMode.value === 'week') { const d = new Date(currentWeekStart.value); d.setDate(d.getDate() + 7); currentWeekStart.value = getLocalDateString(d) }
+  else { const d = new Date(selectedDate.value); d.setDate(d.getDate() + 1); selectedDate.value = getLocalDateString(d) }
   cancelEditing(); loadSchedule()
 }
-function selectDate(date) { viewMode.value='day'; selectedDate.value=date; cancelEditing(); loadSchedule() }
-async function applyCafeId() { if (!cafeIdInput.value) return; scheduleStore.invalidateScheduleCache(); scheduleStore.cafeId=cafeIdInput.value; scheduleError.value=''; cancelEditing(); await loadSchedule(); await scheduleStore.fetchStatusesSchedule() }
-async function loadCafes() { cafesLoading.value=true; try { const c=await getAllCafes(); cafeOptions.value=c; if (c.length>0&&!cafeIdInput.value) { cafeIdInput.value=c[0].id; scheduleStore.cafeId=c[0].id } } catch(e) { console.error(e) } finally { cafesLoading.value=false } }
-function getShiftForDay(user, day) { return user.shifts?.find(s=>s.date===day) }
-function getShiftForDayWithEdit(uIdx, day) {
-  const key=`${uIdx}-${day}`
-  if (editingCell.value && editingCell.value.userIdx===uIdx && editingCell.value.day===day) return getPopoverShift()
-  if (editedShifts.value[key]) return editedShifts.value[key]
-  const u=scheduleStore.allSchedule?.userSchedules?.[uIdx]; return u?.shifts?.find(s=>s.date===day)
+
+function selectDate(date) { viewMode.value = 'day'; selectedDate.value = date; cancelEditing(); loadSchedule() }
+
+async function applyCafeId() {
+  if (!cafeIdInput.value) return
+  scheduleStore.invalidateScheduleCache(); scheduleStore.cafeId = cafeIdInput.value; scheduleError.value = ''; cancelEditing()
+  await loadSchedule(); await scheduleStore.fetchStatusesSchedule()
 }
-function getStatusColor(id) { return scheduleStatusesFromStore.value?.find(s=>s.id===id)?.color||'#f1f1f1' }
-function isNonWorkingShift(id) { return ['OFF','VACATION','SICK_LEAVE'].includes(id) }
-function offColorDark() { return '#2a2a2c' }
-function offColorLight() { const off=scheduleStatusesFromStore.value?.find(s=>s.id==='OFF'); return off?.color||'#cccccc' }
-function getOffColor() { return isDarkMode.value ? offColorDark() : offColorLight() }
+
+async function loadCafes() {
+  cafesLoading.value = true
+  try { const c = await getAllCafes(); cafeOptions.value = c; if (c.length > 0 && !cafeIdInput.value) { cafeIdInput.value = c[0].id; scheduleStore.cafeId = c[0].id } } catch (e) { console.error(e) } finally { cafesLoading.value = false }
+}
+
+function getShiftForDay(user, day) { return user.shifts?.find(s => s.date === day) }
+
+function getShiftForDayWithEdit(uIdx, day) {
+  const key = `${uIdx}-${day}`
+  if (editingCell.value && editingCell.value.userIdx === uIdx && editingCell.value.day === day) return getPopoverShift()
+  if (editedShifts.value[key]) return editedShifts.value[key]
+  const u = scheduleStore.allSchedule?.userSchedules?.[uIdx]
+  return u?.shifts?.find(s => s.date === day)
+}
+
 function getCellBackground(uIdx, day) {
-  const ed=editedShifts.value[`${uIdx}-${day}`]
+  const ed = editedShifts.value[`${uIdx}-${day}`]
   if (ed) return getShiftColor(ed)
-  const u=scheduleStore.allSchedule?.userSchedules?.[uIdx], sh=getShiftForDay(u,day)
-  if (!sh) { const h=getOffColor().replace('#',''); return {backgroundColor:`rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},1)`} }
+  const u = scheduleStore.allSchedule?.userSchedules?.[uIdx]
+  const sh = getShiftForDay(u, day)
+  if (!sh) {
+    const c = getOffColor().replace('#', '')
+    return { backgroundColor: `rgba(${parseInt(c.substring(0, 2), 16)},${parseInt(c.substring(2, 4), 16)},${parseInt(c.substring(4, 6), 16)},1)` }
+  }
   return getShiftColor(sh)
 }
-function getShiftColor(sh) {
-  const c=sh.status==='OFF'&&isDarkMode.value?offColorDark():getStatusColor(sh.status)
-  if (!c) return {}
-  const a=sh.status==='OFF'?1:0.25, h=c.replace('#','')
-  return {backgroundColor:`rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${a})`}
-}
-function timeToPercent(t, isEnd) { if (!t) return isEnd?100:0; const [h,m]=t.split(':').map(Number); if (isEnd&&h===0&&m===0) return 100; return ((h*60+m)/(24*60))*100 }
-function isFullDayShift(id) { return ['VACATION','SICK_LEAVE'].includes(id) }
+
+function timeToPercent(t, isEnd) { if (!t) return isEnd ? 100 : 0; const [h, m] = t.split(':').map(Number); if (isEnd && h === 0 && m === 0) return 100; return ((h * 60 + m) / (24 * 60)) * 100 }
+
+function isFullDayShift(id) { return ['VACATION', 'SICK_LEAVE'].includes(id) }
+
 function getShiftBarStyle(sh) {
   if (!sh) return {}
-  if (isFullDayShift(sh.status)) return { left:'0%', width:'100%', backgroundColor:getStatusColor(sh.status)||'#cccccc' }
-  if (!sh.startTime||!sh.endTime) return {}
-  const l=timeToPercent(sh.startTime), r=timeToPercent(sh.endTime,true)
-  return { left:l+'%', width:Math.max(r-l,0)+'%', backgroundColor:getStatusColor(sh.status)||'#4CAF50' }
+  if (isFullDayShift(sh.status)) return { left: '0%', width: '100%', backgroundColor: getStatusColor(sh.status) || '#cccccc' }
+  if (!sh.startTime || !sh.endTime) return {}
+  const l = timeToPercent(sh.startTime)
+  const r = timeToPercent(sh.endTime, true)
+  return { left: l + '%', width: Math.max(r - l, 0) + '%', backgroundColor: getStatusColor(sh.status) || '#4CAF50' }
 }
+
 function getCoverageCount(hour) {
-  const users=scheduleStore.allSchedule?.userSchedules||[]
-  return users.filter((u,uIdx)=>{ const shift=getShiftForDayWithEdit(uIdx,selectedDate.value); if (!shift||isNonWorkingShift(shift.status)) return false; const [startH,startM]=(shift.startTime||'00:00').split(':').map(Number); let [endH,endM]=(shift.endTime||'23:59').split(':').map(Number); if (endH===0&&endM===0) endH=24; const smin=startH*60+startM, emin=endH*60+endM, hs=hour*60, he=(hour+1)*60; return smin<he&&emin>hs }).length
+  const users = scheduleStore.allSchedule?.userSchedules || []
+  return users.filter((u, uIdx) => {
+    const shift = getShiftForDayWithEdit(uIdx, selectedDate.value)
+    if (!shift || isNonWorkingShift(shift.status)) return false
+    const [startH, startM] = (shift.startTime || '00:00').split(':').map(Number)
+    let [endH, endM] = (shift.endTime || '23:59').split(':').map(Number)
+    if (endH === 0 && endM === 0) endH = 24
+    const smin = startH * 60 + startM, emin = endH * 60 + endM, hs = hour * 60, he = (hour + 1) * 60
+    return smin < he && emin > hs
+  }).length
 }
-function getCoverageColor(hour) { const c=getCoverageCount(hour); if (c===0) return '#ff3b30'; if (c===1) return '#ff9f0a'; if (c===2) return '#ffd60a'; return '#30d158' }
-function closePopover() { popoverSnapshot.value=null; editingCell.value=null }
-function cancelPopover() { if (popoverSnapshot.value&&editingCell.value) editedShifts.value[`${editingCell.value.userIdx}-${editingCell.value.day}`]={...popoverSnapshot.value}; popoverSnapshot.value=null; editingCell.value=null }
-function handleClickOutside(evt) { if (editingCell.value&&!evt.target.closest('.edit-popover')&&!evt.target.closest('.grid-cell')&&!evt.target.closest('.tl-track')) cancelPopover() }
+
+function getCoverageColor(hour) { const c = getCoverageCount(hour); if (c === 0) return '#ff3b30'; if (c === 1) return '#ff9f0a'; if (c === 2) return '#ffd60a'; return '#30d158' }
+
 function handleKeydown(e) {
-  if (e.key==='Escape'&&editingCell.value) { cancelPopover(); e.preventDefault() }
-  if ((e.ctrlKey||e.metaKey)&&e.key==='s'&&isEditingSchedule.value) { e.preventDefault(); saveAllSchedules() }
-  if (e.key==='ArrowLeft'&&!editingCell.value&&!showAddEmployeeModal.value) previousPeriod()
-  if (e.key==='ArrowRight'&&!editingCell.value&&!showAddEmployeeModal.value) nextPeriod()
+  if (e.key === 'Escape' && editingCell.value) { cancelPopover(); e.preventDefault() }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's' && isEditingSchedule.value) { e.preventDefault(); saveAllSchedules() }
+  if (e.key === 'ArrowLeft' && !editingCell.value && !showAddEmployeeModal.value) previousPeriod()
+  if (e.key === 'ArrowRight' && !editingCell.value && !showAddEmployeeModal.value) nextPeriod()
 }
-const availableUsers = computed(() => { const ids=new Set((scheduleStore.allSchedule?.userSchedules||[]).map(u=>u.userId)); return (userStore.allUsers||[]).filter(u=>!ids.has(u.id)&&!(u.roles||[]).includes('USER_ADMIN')) })
-function handleCreateSchedule() { userStore.fetchAllUsers(); showAddEmployeeModal.value=true }
-function openAddEmployeeModal() { userStore.fetchAllUsers(); showAddEmployeeModal.value=true }
-function getMonthDays(ms) { const [y,m]=ms.split('-'), cnt=new Date(parseInt(y),parseInt(m),0).getDate(); return Array.from({length:cnt},(_,i)=>`${y}-${m}-${String(i+1).padStart(2,'0')}`) }
-function getMonthsToLoad() { if (viewMode.value==='month') return currentMonth.value; const ms=new Set(getDaysInPeriod().map(d=>d.substring(0,7))); return ms.size===1?[...ms][0]+'-01':[...ms].map(m=>m+'-01') }
+
+const availableUsers = computed(() => {
+  const ids = new Set((scheduleStore.allSchedule?.userSchedules || []).map(u => u.userId))
+  return (userStore.allUsers || []).filter(u => !ids.has(u.id) && !(u.roles || []).includes('USER_ADMIN'))
+})
+
+function handleCreateSchedule() { userStore.fetchAllUsers(); showAddEmployeeModal.value = true }
+
+function openAddEmployeeModal() { userStore.fetchAllUsers(); showAddEmployeeModal.value = true }
+
+function getMonthDays(ms) { const [y, m] = ms.split('-'); const cnt = new Date(parseInt(y), parseInt(m), 0).getDate(); return Array.from({ length: cnt }, (_, i) => `${y}-${m}-${String(i + 1).padStart(2, '0')}`) }
+
+function getMonthsToLoad() {
+  if (viewMode.value === 'month') return currentMonth.value
+  const ms = new Set(getDaysInPeriod().map(d => d.substring(0, 7)))
+  return ms.size === 1 ? [...ms][0] + '-01' : [...ms].map(m => m + '-01')
+}
+
 function handleAddEmployees(su) {
-  const days=getMonthDays(currentMonth.value)
-  su.forEach(u=>{ scheduleStore.allSchedule.userSchedules.push({userId:u.id,username:u.username,firstName:u.firstName,lastName:u.lastName,position:u.position||'',shifts:days.map(d=>({date:d,startTime:'00:00',endTime:'23:59',status:'OFF'}))}) })
-  showAddEmployeeModal.value=false; if (!isEditingSchedule.value) startEditing()
+  const days = getMonthDays(currentMonth.value)
+  su.forEach(u => {
+    scheduleStore.allSchedule.userSchedules.push({
+      userId: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName, position: u.position || '',
+      shifts: days.map(d => ({ date: d, startTime: '00:00', endTime: '23:59', status: 'OFF' }))
+    })
+  })
+  showAddEmployeeModal.value = false
+  if (!isEditingSchedule.value) startEditing()
 }
-function startEditing() { isEditingSchedule.value=true; originalSchedule.value=JSON.parse(JSON.stringify(scheduleStore.allSchedule)); editedShifts.value={}; userStore.fetchAllUsers() }
-function cancelEditing() { if (originalSchedule.value) scheduleStore.allSchedule=JSON.parse(JSON.stringify(originalSchedule.value)); isEditingSchedule.value=false; editedShifts.value={}; originalSchedule.value=null }
+
+function startEditing() {
+  editorStartEditing(scheduleStore.allSchedule)
+  userStore.fetchAllUsers()
+}
+
+function cancelEditing() {
+  const restored = editorCancelEditing()
+  if (restored) scheduleStore.allSchedule = restored
+}
+
 async function saveAllSchedules() {
   try {
-    const NW=['OFF','VACATION','SICK_LEAVE']
-    const data=scheduleStore.allSchedule.userSchedules.map((u,uIdx)=>({userId:u.userId,shifts:(u.shifts||[]).map(s=>{const ed=editedShifts.value[`${uIdx}-${s.date}`],sd=ed||s;if(!sd)return null;const nw=NW.includes(sd.status);return{date:sd.date,startTime:nw?'00:00':(sd.startTime||'00:00'),endTime:nw?'23:59':(sd.endTime||'23:59'),status:sd.status}}).filter(Boolean)}))
-    await scheduleStore.updateAllScheduleData(currentMonth.value,data)
-    editedShifts.value={}; originalSchedule.value=null; isEditingSchedule.value=false; await loadSchedule()
-    toast.add({severity:'success',summary:'Успех',detail:'Расписание сохранено!',life:3000})
-  } catch { toast.add({severity:'error',summary:'Ошибка',detail:'Ошибка при сохранении',life:5000}) }
+    const NW = ['OFF', 'VACATION', 'SICK_LEAVE']
+    const data = scheduleStore.allSchedule.userSchedules.map((u, uIdx) => {
+      const originalDates = new Set((u.shifts || []).map(s => s.date))
+      const editedDates = new Set(
+        Object.keys(editedShifts.value)
+          .filter(k => k.startsWith(`${uIdx}-`))
+          .map(k => k.slice(k.indexOf('-') + 1))
+      )
+      const allDates = new Set([...originalDates, ...editedDates])
+      return {
+        userId: u.userId,
+        shifts: Array.from(allDates).map(d => {
+          const ed = editedShifts.value[`${uIdx}-${d}`]
+          const exs = (u.shifts || []).find(s => s.date === d)
+          const sd = ed || exs
+          if (!sd) return null
+          const nw = NW.includes(sd.status)
+          return { date: sd.date, startTime: nw ? '00:00' : (sd.startTime || '00:00'), endTime: nw ? '23:59' : (sd.endTime || '23:59'), status: sd.status }
+        }).filter(Boolean)
+      }
+    })
+    await scheduleStore.updateAllScheduleData(currentMonth.value, data)
+    finalizeEditing()
+    await loadSchedule()
+    toast.add({ severity: 'success', summary: 'Успех', detail: 'Расписание сохранено!', life: 3000 })
+  } catch {
+    toast.add({ severity: 'error', summary: 'Ошибка', detail: 'Ошибка при сохранении', life: 5000 })
+  }
 }
+
 async function toggleApproveStatus() {
-  try { await scheduleStore.changeApproveStatus(currentMonth.value,!scheduleStore.allSchedule.approved); await loadSchedule() } catch { /* ignore */ }
+  try { await scheduleStore.changeApproveStatus(currentMonth.value, !scheduleStore.allSchedule.approved); await loadSchedule() } catch { /* ignore */ }
 }
+
 async function loadSchedule() { try { return await scheduleStore.fetchAllSchedule(getMonthsToLoad()) } catch { return false } }
+
 function printSchedule() { window.print() }
+
 function handleRemoveEmployee(uid) {
-  const idx=scheduleStore.allSchedule.userSchedules.findIndex(u=>u.userId===uid); if (idx===-1) return
-  const u=scheduleStore.allSchedule.userSchedules[idx]
-  confirm.require({message:`Удалить ${u.firstName} ${u.lastName} из расписания?`,header:'Подтверждение',icon:'pi pi-exclamation-triangle',rejectLabel:'Отмена',acceptLabel:'Удалить',accept:()=>{scheduleStore.allSchedule.userSchedules.splice(idx,1);editedShifts.value={}}})
+  const idx = scheduleStore.allSchedule.userSchedules.findIndex(u => u.userId === uid)
+  if (idx === -1) return
+  const u = scheduleStore.allSchedule.userSchedules[idx]
+  confirm.require({
+    message: `Удалить ${u.firstName} ${u.lastName} из расписания?`, header: 'Подтверждение', icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Отмена', acceptLabel: 'Удалить', accept: () => { scheduleStore.allSchedule.userSchedules.splice(idx, 1); editedShifts.value = {} }
+  })
 }
+
 onMounted(async () => {
-  const t=new Date(); t.setHours(0,0,0,0); currentWeekStart.value=getWeekStart(t); selectedDate.value=getWeekStart(t)
+  const t = new Date(); t.setHours(0, 0, 0, 0); currentWeekStart.value = getWeekStart(t); selectedDate.value = getWeekStart(t)
   await userStore.init(); await loadCafes()
-  if (userStore.currentUser?.cafeId&&!cafeIdInput.value) { scheduleStore.cafeId=userStore.currentUser.cafeId; cafeIdInput.value=userStore.currentUser.cafeId }
+  if (userStore.currentUser?.cafeId && !cafeIdInput.value) { scheduleStore.cafeId = userStore.currentUser.cafeId; cafeIdInput.value = userStore.currentUser.cafeId }
   await loadSchedule(); await scheduleStore.fetchStatusesSchedule()
-  document.addEventListener('click',handleClickOutside); document.addEventListener('keydown',handleKeydown)
+  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeydown)
 })
-onBeforeUnmount(() => { document.removeEventListener('click',handleClickOutside); document.removeEventListener('keydown',handleKeydown) })
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
