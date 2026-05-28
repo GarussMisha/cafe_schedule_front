@@ -1,6 +1,5 @@
 import apiClient from './index.js'
 
-// 1. Получение всего расписания по всем пользователям
 export async function getAllSchedule(month, cafeId) {
     try {
         const response = await apiClient.get('/schedule/all', {
@@ -8,12 +7,10 @@ export async function getAllSchedule(month, cafeId) {
         });
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: fetching ALL schedules:', error);
         throw error;
     }
 }
 
-// 2. Получение расписания по текущему пользователю
 export async function getMySchedule(month, cafeId) {
     try {
         const response = await apiClient.get('/schedule/my', {
@@ -21,23 +18,19 @@ export async function getMySchedule(month, cafeId) {
         });
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: fetching MY schedules:', error);
         throw error;
     }
 }
 
-// 3. Создание расписания по текущему пользователю
 export async function createMySchedule(scheduleData) {
     try {
         const response = await apiClient.post('/schedule/my', scheduleData);
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: creating MY schedule:', error);
         throw error;
     }
 }
 
-// 4. Внесение изменений в расписание по текущему пользователю
 export async function updateMySchedule(month, scheduleData, cafeId) {
     try {
         const payload = {
@@ -49,12 +42,10 @@ export async function updateMySchedule(month, scheduleData, cafeId) {
         });
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: updating MY schedule:', error);
         throw error;
     }
 }
     
-// 5. Получение статусов смен
 export async function getStatusesSchedule(cafeId) {
     try {
         const response = await apiClient.get('/schedule/statuses', {
@@ -62,9 +53,6 @@ export async function getStatusesSchedule(cafeId) {
         });
         return response.data;
     } catch (error) {
-        console.warn('E:API:SCHEDULE: fetching statuses schedules. Return default statuses:', error);
-        
-        // Дефолтные статусы (TODO: пока не реализуем endpoint)
         const defaultStatusesSchedule = [
             { id: 'WORKING',    color: '#00b10fff', name_rus: 'Рабочая',    short_name: 'Р' },
             { id: 'OFF',        color: '#ccccccff', name_rus: 'Выходной',   short_name: 'В' },
@@ -75,21 +63,17 @@ export async function getStatusesSchedule(cafeId) {
     }
 }
 
-// 6. Получение статуса расписания all
 export async function getScheduleStatus(month, cafeId) {
     try {
         const response = await apiClient.get('/schedule/status', { params: { month, cafeId }});
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: fetching schedule status:', error);
         throw error;
     }
 }
 
-// 7. Изменение статуса расписания (Открыто / закрыто)
 export async function changeScheduleStatus(scheduleData, cafeId) {
     try { 
-        console.log("changeScheduleStatus")
         const response = await apiClient.post('/schedule/approve', null, {
             params: { 
                 month: scheduleData.month,
@@ -99,12 +83,10 @@ export async function changeScheduleStatus(scheduleData, cafeId) {
         });
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: changing schedule status:', error);
         throw error;
     }
 }
 
-// 8. Обновление расписания для всех сотрудников
 export async function updateAllSchedule(month, scheduleData, cafeId) {
     try { 
         const response = await apiClient.post('/schedule/all', scheduleData, {
@@ -112,7 +94,6 @@ export async function updateAllSchedule(month, scheduleData, cafeId) {
         });
         return response.data;
     } catch (error) {
-        console.error('E:API:SCHEDULE: updating ALL schedules:', error);
         throw error;
     }
 }

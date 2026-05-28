@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted, onBeforeUnmount, computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useToast } from 'primevue/usetoast'
@@ -18,15 +18,21 @@ const route = useRoute()
 
 const isLoginPage = computed(() => route.path === '/login')
 
+let unsubToast = null
+
 onMounted(() => {
   userStore.init()
-  onToast((options) => {
+  unsubToast = onToast((options) => {
     toast.add(options)
   })
   const saved = localStorage.getItem('darkMode')
   if (saved === 'true') {
     document.documentElement.classList.add('my-app-dark')
   }
+})
+
+onBeforeUnmount(() => {
+  if (unsubToast) unsubToast()
 })
 </script>
 

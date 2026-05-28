@@ -6,7 +6,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     //State
     const isLoading = ref(false)
     const mySchedule = ref([])
-    const allSchedule = ref([])
+    const allSchedule = ref(null)
     const statusesSchedule = ref([])
     const scheduleStatus = ref([])
     const cafeId = ref(null)
@@ -27,7 +27,6 @@ export const useScheduleStore = defineStore('schedule', () => {
             const data = await getMySchedule(month, cafeId.value);
             mySchedule.value = data;
         } catch (error) {
-            console.error('Error in fetchMySchedule:', error);
             throw error;
         } finally {
             isLoading.value = false
@@ -70,7 +69,6 @@ export const useScheduleStore = defineStore('schedule', () => {
                 allScheduleMonthsKey.value = newMonthsKey
             }
         } catch (error) {
-            console.error('Error in fetchAllSchedule:', error);
             throw error;
         }
     }
@@ -116,7 +114,6 @@ export const useScheduleStore = defineStore('schedule', () => {
             const data = await getStatusesSchedule(cafeId.value);
             statusesSchedule.value = data;
         } catch (error) {
-            console.error('Error in fetchStatusesSchedule:', error);
             throw error;
         } finally {
             isLoading.value = false
@@ -128,10 +125,8 @@ export const useScheduleStore = defineStore('schedule', () => {
         isLoading.value = true
         try {
             const data = await getScheduleStatus(month, cafeId.value);
-            console.log(data)
             scheduleStatus.value = data;
         } catch (error) {
-            console.error('Error in fetchScheduleStatus:', error);
             throw error;
         } finally {
             isLoading.value = false
@@ -145,7 +140,6 @@ export const useScheduleStore = defineStore('schedule', () => {
             const data = await updateMyScheduleAPI(month, { shifts: shiftsData }, cafeId.value);
             mySchedule.value = data;
         } catch (error) {
-            console.error('Error in updateMySchedule:', error);
             throw error;
         } finally {
             isLoading.value = false
@@ -156,12 +150,10 @@ export const useScheduleStore = defineStore('schedule', () => {
     async function changeApproveStatus(month = currentMonth.value, approve) {
         isLoading.value = true
         try {
-            console.log("changeApproveStatus", month, approve)
             const data = await changeScheduleStatus({ month, approved: approve }, cafeId.value);
             mySchedule.value = data;
             allSchedule.value = data;
         } catch (error) {
-            console.error('Error in changeApproveStatus:', error);
             throw error;
         } finally {
             isLoading.value = false
@@ -180,7 +172,6 @@ export const useScheduleStore = defineStore('schedule', () => {
             const data = await updateAllSchedule(month, payload, cafeId.value);
             allSchedule.value = data;
         } catch (error) {
-            console.error('Error in updateAllScheduleData:', error);
             throw error;
         } finally {
             isLoading.value = false

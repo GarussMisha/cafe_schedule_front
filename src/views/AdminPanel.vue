@@ -168,12 +168,12 @@ onBeforeUnmount(() => { document.removeEventListener('keydown',handleKeydown) })
 
 function handleUserUpdated() { loadUsers(); showEditModal.value=false }
 function openEditModal(user) { selectedUser.value=user; showEditModal.value=true }
-async function loadUsers() { try { allUsers.value=await userStore.fetchAllUsers() } catch(e) { console.error(e) } }
+async function loadUsers() { try { allUsers.value=await userStore.fetchAllUsers() } catch(_e) { /* ignore */ } }
 function confirmDeleteUser(user) { const n=`${user.firstName} ${user.lastName}`.trim()||user.username; openConfirmModal(`Удалить пользователя «${n}»? Связанное расписание будет удалено.`,()=>executeDeleteUser(user.id)) }
 async function executeDeleteUser(id) { try { await userStore.deleteUser_store(id); toast.add({severity:'success',summary:'Успех',detail:'Пользователь удалён',life:3000}); await loadUsers() } catch(e) { toast.add({severity:'error',summary:'Ошибка',detail:e.response?.data?.message||'Ошибка удаления',life:5000}) } }
 function handleCafeUpdated() { loadCafes(); showEditCafeModal.value=false }
 function openEditCafeModal(cafe) { selectedCafe.value=cafe; showEditCafeModal.value=true }
-async function loadCafes() { cafesLoading.value=true; try { cafes.value=await getAllCafes() } catch(e) { console.error(e) } finally { cafesLoading.value=false } }
+async function loadCafes() { cafesLoading.value=true; try { cafes.value=await getAllCafes() } catch(_e) { /* ignore */ } finally { cafesLoading.value=false } }
 function confirmDeleteCafe(cafe) { openConfirmModal(`Удалить кафе «${cafe.name}»? Связанное расписание будет удалено.`,()=>executeDeleteCafe(cafe.id)) }
 async function executeDeleteCafe(id) { try { await deleteCafe(id); toast.add({severity:'success',summary:'Успех',detail:'Кафе удалено',life:3000}); await loadCafes() } catch(e) { toast.add({severity:'error',summary:'Ошибка',detail:e.response?.data?.message||'Ошибка удаления',life:5000}) } }
 </script>

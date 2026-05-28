@@ -154,11 +154,11 @@
         <div class="popover-body">
           <div class="popover-field">
             <label>Начало</label>
-            <input type="time" :value="getPopoverShift()?.startTime" @input="onPopoverTimeChange('startTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopoverShift()?.status)" />
+            <input type="time" :value="getPopoverShift()?.startTime" @input="onPopoverTimeChange('startTime', $event.target.value)" class="popover-input" :disabled="isNonWorking(getPopoverShift()?.status)" />
           </div>
           <div class="popover-field">
             <label>Конец</label>
-            <input type="time" :value="getPopoverShift()?.endTime" @input="onPopoverTimeChange('endTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopoverShift()?.status)" />
+            <input type="time" :value="getPopoverShift()?.endTime" @input="onPopoverTimeChange('endTime', $event.target.value)" class="popover-input" :disabled="isNonWorking(getPopoverShift()?.status)" />
           </div>
           <div class="popover-field">
             <label>Статус</label>
@@ -210,6 +210,7 @@ import Select from 'primevue/select'
 import { getAllCafes } from '@/api/cafe'
 import { getDayOfWeekShort, isWeekend, isToday, formatMonth, getPreviousMonth, getNextMonth, formatTime } from '@/utils/schedule'
 import { useScheduleEditor } from '@/composables/useScheduleEditor'
+import { isNonWorkingShift, normalizeShiftTimes, SHIFT_STATUS } from '@/utils/constants'
 
 const toast = useToast()
 const userStore = useUserStore()
@@ -223,7 +224,6 @@ const {
   popoverSnapshot,
   statusOptions,
   formatDateDisplay,
-  isNonWorkingShift,
   getOffColor,
   getShiftColor,
   startEditing: editorStartEditing,
@@ -337,6 +337,7 @@ function getEdited(date) {
 }
 
 function isNonWork(id) { return isNonWorkingShift(id) }
+function isNonWorking(id) { return isNonWorkingShift(id) }
 
 function getCellBg(day) {
   const ed = editedShifts.value[day]
@@ -368,7 +369,6 @@ function cancelEditing() {
 
 async function saveSchedule() {
   try {
-    const NW = ['OFF', 'VACATION', 'SICK_LEAVE']
     const u = scheduleStore.mySchedule.userSchedules[0]
     const ex = u.shifts || []
     const exD = new Set(ex.map(s => s.date))
@@ -376,10 +376,9 @@ async function saveSchedule() {
     const allD = new Set([...exD, ...edD])
     const data = Array.from(allD).map(d => {
       const ed = editedShifts.value[d], exs = ex.find(s => s.date === d)
-      const sd = ed || exs
+      const sd = normalizeShiftTimes(ed || exs)
       if (!sd) return null
-      const nw = NW.includes(sd.status)
-      return { date: sd.date, startTime: nw ? '00:00' : (sd.startTime || '00:00'), endTime: nw ? '23:59' : (sd.endTime || '23:59'), status: sd.status }
+      return sd
     }).filter(Boolean)
     await scheduleStore.updateMySchedule(currentMonth.value, data)
     finalizeEditing()
@@ -404,7 +403,7 @@ function calcHours(s, e) {
 }
 
 async function loadSchedule() {
-  try { await scheduleStore.fetchMySchedule(currentMonth.value) } catch (_e) { console.error('Schedule load error:', _e) }
+  try { await scheduleStore.fetchMySchedule(currentMonth.value) } catch (_e) { /* ignore */ }
 }
 
 async function previousMonth() { currentMonth.value = getPreviousMonth(currentMonth.value); scheduleStore.currentMonth = currentMonth.value; cancelEditing(); await loadSchedule() }
@@ -429,8 +428,8 @@ async function loadCafes() {
       cafeIdInput.value = c[0].id
       scheduleStore.cafeId = c[0].id
     }
-  } catch (e) {
-    console.error(e)
+  } catch (_e) {
+    /* ignore */
   } finally {
     cafesLoading.value = false
   }

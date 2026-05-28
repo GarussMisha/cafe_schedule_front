@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useScheduleStore } from '@/stores/schedule'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { isNonWorkingShift } from '@/utils/constants'
 
 export function useScheduleEditor() {
   const scheduleStore = useScheduleStore()
@@ -33,10 +34,6 @@ export function useScheduleEditor() {
     return scheduleStatusesFromStore.value?.find(s => s.id === id)?.color || '#f1f1f1'
   }
 
-  function isNonWorkingShift(id) {
-    return ['OFF', 'VACATION', 'SICK_LEAVE'].includes(id)
-  }
-
   function offColorDark() { return '#2a2a2c' }
 
   function offColorLight() {
@@ -55,15 +52,6 @@ export function useScheduleEditor() {
     const a = sh.status === 'OFF' ? 1 : 0.25
     const h = c.replace('#', '')
     return { backgroundColor: `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${a})` }
-  }
-
-  function getCellColorFromShift(sh) {
-    if (!sh) {
-      const c = isDarkMode.value ? offColorDark() : offColorLight()
-      const h = c.replace('#', '')
-      return { backgroundColor: `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},1)` }
-    }
-    return getShiftColor(sh)
   }
 
   function startEditing(scheduleData) {
@@ -100,10 +88,6 @@ export function useScheduleEditor() {
     editingCell.value = cellInfo
   }
 
-  function setCellInfo(cellInfo) {
-    editingCell.value = cellInfo
-  }
-
   function getPopoverShift() {
     if (!editingCell.value) return null
     return editedShifts.value[editingCell.value.editKey] || null
@@ -134,6 +118,7 @@ export function useScheduleEditor() {
     const key = editingCell.value.editKey
     initEditedShift(key, editingCell.value.originalShift, editingCell.value.day)
     editedShifts.value[key][field] = v
+    editedShifts.value[key] = { ...editedShifts.value[key] }
   }
 
   function closePopover() {
@@ -165,17 +150,12 @@ export function useScheduleEditor() {
     statusOptions,
     formatDateDisplay,
     getStatusColor,
-    isNonWorkingShift,
-    offColorDark,
-    offColorLight,
     getOffColor,
     getShiftColor,
-    getCellColorFromShift,
     startEditing,
     cancelEditing,
     finalizeEditing,
     openPopover,
-    setCellInfo,
     getPopoverShift,
     initEditedShift,
     onPopoverStatusChange,

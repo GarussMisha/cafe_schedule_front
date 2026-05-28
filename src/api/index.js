@@ -38,7 +38,6 @@ apiClient.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('E:API:AUTH: API request ERROR:', error.message);
         return Promise.reject(error);
     }
 );
@@ -63,7 +62,6 @@ apiClient.interceptors.response.use(
             emitToast({ severity: 'error', summary: 'Ошибка', detail: 'Нет доступа к ресурсу', life: 5000 })
         }
         
-        console.error('API response ERROR:', error.message)
         return Promise.reject(error)
     }
 )

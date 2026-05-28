@@ -92,8 +92,7 @@ async function handleLogin() {
       password: password.value
     })
     router.push('/')
-  } catch (err) {
-    console.error('Ошибка логина:', err)
+  } catch (_err) {
     error.value = 'Неверный логин или пароль'
   }
 }

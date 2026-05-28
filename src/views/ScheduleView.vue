@@ -146,11 +146,11 @@
       <div class="popover-body">
         <div class="popover-field">
           <label>Начало</label>
-          <input type="time" :value="getPopoverShift()?.startTime" @input="onPopoverTimeChange('startTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopoverShift()?.status)" />
+          <input type="time" :value="getPopoverShift()?.startTime" @input="onPopoverTimeChange('startTime', $event.target.value)" class="popover-input" :disabled="isNonWorkingShift(getPopoverShift()?.status)" />
         </div>
         <div class="popover-field">
           <label>Конец</label>
-          <input type="time" :value="getPopoverShift()?.endTime" @input="onPopoverTimeChange('endTime', $event.target.value)" class="popover-input" :disabled="['OFF','VACATION','SICK_LEAVE'].includes(getPopoverShift()?.status)" />
+          <input type="time" :value="getPopoverShift()?.endTime" @input="onPopoverTimeChange('endTime', $event.target.value)" class="popover-input" :disabled="isNonWorkingShift(getPopoverShift()?.status)" />
         </div>
         <div class="popover-field">
           <label>Статус</label>
@@ -180,6 +180,7 @@ import { getAllCafes } from '@/api/cafe'
 import { getDayOfWeekShort, isWeekend, isToday, getPreviousMonth, getNextMonth, formatTime } from '@/utils/schedule'
 import AddEmployeeModal from '@/components/modal/schedule/AddEmployeeModal.vue'
 import { useScheduleEditor } from '@/composables/useScheduleEditor'
+import { isNonWorkingShift, normalizeShiftTimes, SHIFT_STATUS } from '@/utils/constants'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -195,7 +196,6 @@ const {
   statusOptions,
   formatDateDisplay,
   getStatusColor,
-  isNonWorkingShift,
   getOffColor,
   getShiftColor,
   startEditing: editorStartEditing,
@@ -314,7 +314,7 @@ async function applyCafeId() {
 
 async function loadCafes() {
   cafesLoading.value = true
-  try { const c = await getAllCafes(); cafeOptions.value = c; if (c.length > 0 && !cafeIdInput.value) { cafeIdInput.value = c[0].id; scheduleStore.cafeId = c[0].id } } catch (e) { console.error(e) } finally { cafesLoading.value = false }
+  try { const c = await getAllCafes(); cafeOptions.value = c; if (c.length > 0 && !cafeIdInput.value) { cafeIdInput.value = c[0].id; scheduleStore.cafeId = c[0].id } } catch (_e) { /* ignore */ } finally { cafesLoading.value = false }
 }
 
 function getShiftForDay(user, day) { return user.shifts?.find(s => s.date === day) }
@@ -379,7 +379,13 @@ const availableUsers = computed(() => {
   return (userStore.allUsers || []).filter(u => !ids.has(u.id) && !(u.roles || []).includes('USER_ADMIN'))
 })
 
-function handleCreateSchedule() { userStore.fetchAllUsers(); showAddEmployeeModal.value = true }
+function handleCreateSchedule() {
+  if (!scheduleStore.allSchedule?.userSchedules?.length) {
+    scheduleStore.allSchedule = { cafeId: cafeIdInput.value, approved: false, userSchedules: [] }
+  }
+  userStore.fetchAllUsers()
+  showAddEmployeeModal.value = true
+}
 
 function openAddEmployeeModal() { userStore.fetchAllUsers(); showAddEmployeeModal.value = true }
 
@@ -396,7 +402,7 @@ function handleAddEmployees(su) {
   su.forEach(u => {
     scheduleStore.allSchedule.userSchedules.push({
       userId: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName, position: u.position || '',
-      shifts: days.map(d => ({ date: d, startTime: '00:00', endTime: '23:59', status: 'OFF' }))
+      shifts: days.map(d => ({ date: d, startTime: '00:00', endTime: '23:59', status: SHIFT_STATUS.OFF }))
     })
   })
   showAddEmployeeModal.value = false
@@ -415,7 +421,6 @@ function cancelEditing() {
 
 async function saveAllSchedules() {
   try {
-    const NW = ['OFF', 'VACATION', 'SICK_LEAVE']
     const data = scheduleStore.allSchedule.userSchedules.map((u, uIdx) => {
       const originalDates = new Set((u.shifts || []).map(s => s.date))
       const editedDates = new Set(
@@ -429,10 +434,9 @@ async function saveAllSchedules() {
         shifts: Array.from(allDates).map(d => {
           const ed = editedShifts.value[`${uIdx}-${d}`]
           const exs = (u.shifts || []).find(s => s.date === d)
-          const sd = ed || exs
+          const sd = normalizeShiftTimes(ed || exs)
           if (!sd) return null
-          const nw = NW.includes(sd.status)
-          return { date: sd.date, startTime: nw ? '00:00' : (sd.startTime || '00:00'), endTime: nw ? '23:59' : (sd.endTime || '23:59'), status: sd.status }
+          return sd
         }).filter(Boolean)
       }
     })

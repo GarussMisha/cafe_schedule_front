@@ -16,59 +16,40 @@ export const useUserStore = defineStore('user', () => {
   const isManager = computed(() => roles.value.includes('CAFE_ADMIN'))
   const isEmployee = computed(() => roles.value.includes('STAFF'))
 
-  /**
-   * Инициализация - загружает профиль по токену
-   */
   async function init() {
     const token = localStorage.getItem('token')
     const savedUser = localStorage.getItem('currentUser')
-    
-    // Если есть сохранённый пользователь — восстанавливаем его
     if (savedUser) {
       currentUser.value = JSON.parse(savedUser)
       return currentUser.value
     }
-    
     if (!token) return null
-
     try {
       isLoading.value = true
       const userData = await authAPI.getProfile()
       currentUser.value = userData
       return userData
     } catch (error) {
-      console.error('E -> stores/user.js -> Ошибка загрузки профиля:', error)
       throw error
     } finally {
       isLoading.value = false
     }
   }
 
-  /**
-   * Логин - использует ваш метод login
-   */
   async function login(credentials) {
     try {
       isLoading.value = true
-      // ✅ Используем ваш метод login
       const userData = await authAPI.login(credentials)
       currentUser.value = userData
-      
-      // Сохраняем currentUser в localStorage для восстановления после перезагрузки
       localStorage.setItem('currentUser', JSON.stringify(userData))
-      
       return userData
     } catch (error) {
-      console.error('E -> stores/user.js -> Ошибка логина:', error)
       throw error
     } finally {
       isLoading.value = false
     }
   }
 
-  /**
-   * Выход - использует ваш метод logout
-   */
   async function logout() {
     authAPI.logout()
     currentUser.value = null
@@ -76,17 +57,12 @@ export const useUserStore = defineStore('user', () => {
     router.push('/login')
   }
 
-  /**
-   * Загрузка всех пользователей
-   */
   async function fetchAllUsers() {
     try {
       const users = await getAllUsers()
       allUsers.value = users
-      console.log('Пользователи загружены успешно:', users)
       return allUsers.value
     } catch (error) {
-      console.error('E -> stores/user.js -> Ошибка загрузки пользователей:', error)
       throw error
     }
   }
@@ -94,10 +70,8 @@ export const useUserStore = defineStore('user', () => {
   async function createUser_store(userData) {
     try {
       const newUser = await createUser(userData)
-      console.log('Пользователь создан успешно:', newUser)
       return newUser
     } catch (error) {
-      console.error('E -> stores/user.js -> Ошибка создания пользователя:', error)
       throw error
     }
   }
@@ -105,26 +79,20 @@ export const useUserStore = defineStore('user', () => {
   async function updatedUser_store(userId, userData) {
     try {
       const updatedUser = await updateUser(userId, userData)
-      console.log('Пользователь обновлен успешно:', updatedUser)
       return updatedUser
     } catch (error) {
-      console.error('E -> stores/user.js -> Ошибка обновления пользователя:', error)
-      throw error     
-    }
-  }
-
-
-  async function deleteUser_store(userId) {
-    try {
-      const result = await deleteUser(userId)
-      console.log('Пользователь удален успешно:', result)
-      return result
-    } catch (error) {
-      console.error('E -> stores/user.js -> Ошибка удаления пользователя:', error)
       throw error
     }
   }
 
+  async function deleteUser_store(userId) {
+    try {
+      const result = await deleteUser(userId)
+      return result
+    } catch (error) {
+      throw error
+    }
+  }
 
   return {
     currentUser,

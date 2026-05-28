@@ -32,7 +32,6 @@ export async function getProfile() {
     const response = await apiClient.get('/profile')
     return response.data
   } catch (error) {
-    console.error('E:API:AUTH: Get profile error:', error)
     throw error
   }
 }

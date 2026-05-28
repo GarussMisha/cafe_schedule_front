@@ -49,7 +49,6 @@ router.beforeEach((to, from, next) => {
     next('/login')
   } else if ((to.path == '/schedule' || to.path == '/profile') && getRole().includes('USER_ADMIN')) { 
       next('/')
-      console.warn('Доступ запрещен: Ваша роль == USER_ADMIN. Для неё доспуп к расписанию закрыт.') 
   } else {
     next()
   }
